@@ -1,0 +1,8 @@
+# Terraform state & cache
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+
+# Secrets — use TF_VAR_hcloud_token env var instead of committing this
+terraform.tfvars

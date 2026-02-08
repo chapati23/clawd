@@ -1,0 +1,61 @@
+#cloud-config
+
+# ──────────────────────────────────────────────
+# User
+# ──────────────────────────────────────────────
+users:
+  - name: molt
+    groups: sudo
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    ssh_authorized_keys:
+      - ${SSH_PUBLIC_KEY}
+
+# ──────────────────────────────────────────────
+# System
+# ──────────────────────────────────────────────
+package_update: true
+package_upgrade: true
+timezone: Europe/Berlin
+
+packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - build-essential
+  - fail2ban
+  - unattended-upgrades
+
+# ──────────────────────────────────────────────
+# Swap (1 GB — safety net for a 4 GB server)
+# ──────────────────────────────────────────────
+swap:
+  filename: /swapfile
+  size: 1073741824
+  maxsize: 1073741824
+
+# ──────────────────────────────────────────────
+# Bootstrap
+# ──────────────────────────────────────────────
+runcmd:
+  # Harden SSH: disable root & password login
+  - sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+  - sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+  - systemctl restart sshd
+
+  # Enable fail2ban
+  - systemctl enable --now fail2ban
+
+  # Enable unattended security upgrades
+  - dpkg-reconfigure -f noninteractive unattended-upgrades
+
+  # Install Node.js 22.x via NodeSource
+  - curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+  - apt-get install -y nodejs
+
+  # Install OpenClaw globally
+  - npm install -g openclaw@latest
+
+  # Signal completion
+  - touch /home/molt/.openclaw-ready
+  - chown molt:molt /home/molt/.openclaw-ready
