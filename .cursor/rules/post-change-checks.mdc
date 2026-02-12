@@ -1,0 +1,127 @@
+---
+description: When and which checks to run after making code changes
+alwaysApply: true
+---
+
+# Post-Change Checks
+
+After making code changes, **always run appropriate checks** before considering the task complete.
+
+## Decision Tree
+
+| What Changed                             | Check to Run                                                             |
+| ---------------------------------------- | ------------------------------------------------------------------------ |
+| Only whitespace/formatting               | `trunk fmt`                                                              |
+| Terraform files (`.tf`)                  | `trunk check --fix` + `terraform validate` (in `terraform/`)            |
+| Shell scripts (`.sh`)                    | `trunk check --fix` on changed files (runs shellcheck)                   |
+| YAML files (cloud-init, CI workflows)    | `trunk check --fix` on changed files                                    |
+| Checkov policy YAML (`checkov-policies/`) | `trunk check --fix` + `trunk check --all --filter=checkov`             |
+| Trunk config (`.trunk/trunk.yaml`)       | `trunk check --all` (full re-check, config affects all linters)          |
+| Multiple file types                      | `trunk check --fix` on changed files                                    |
+
+## Terraform-Specific Checks
+
+After changing `.tf` files, always run both Trunk and Terraform's own validation:
+
+```bash
+# 1. Trunk handles: terraform fmt, tflint, checkov, terrascan, trufflehog
+trunk check --fix terraform/main.tf terraform/variables.tf
+
+# 2. Terraform validate catches config errors Trunk can't
+cd terraform && terraform validate
+```
+
+`terraform validate` requires a prior `terraform init`. If providers or versions changed, run `terraform init -backend=false` first.
+
+## Shell Script Checks
+
+After changing `.sh` files, run trunk which invokes shellcheck:
+
+```bash
+trunk check --fix setup.sh destroy.sh
+```
+
+### Common shellcheck patterns to watch for
+
+| Pattern | ShellCheck Rule | Fix |
+| ---------------------------------- | --------------- | ------------------------------------------ |
+| Variables in printf format string  | SC2059          | Use `printf '%b..%s..' "$color" "$value"` instead of `printf "${color}..."` |
+| Single quotes blocking expansion   | SC2016          | Switch to double quotes if expansion is intended |
+| Missing default case in `case`     | SC2249          | Add a `*) ;;` fallback |
+| Unquoted variable in test          | SC2086          | Quote it: `"$var"` |
+
+## Before Running Checks: Analyze Impact
+
+**STOP and think** before running checks. Ask yourself:
+
+1. **Did I add a new resource?** Checkov custom policies may flag missing attributes (backups, delete_protection, labels).
+2. **Did I change firewall rules?** CKV2_HCLOUD_5 flags open ingress. Add a `checkov:skip` comment inside the resource block if intentional.
+3. **Did I add a new Checkov policy?** Ensure YAML passes yamllint (no redundant quotes, proper formatting).
+
+### Common patterns that break checks
+
+| Change Made                          | What Will Fail                                           |
+| ------------------------------------ | -------------------------------------------------------- |
+| New `hcloud_server` resource         | Checkov: missing backups, delete/rebuild protection, labels, SSH keys, user_data |
+| New `hcloud_firewall` resource       | Checkov: missing delete_protection, open ingress check   |
+| Quoted strings in YAML               | yamllint: `quoted-strings` rule (use unquoted when possible) |
+| Changed provider versions            | `terraform init` required before `terraform validate`    |
+| Modified cloud-init (`user-data.yml`) | prettier formatting + yamllint                          |
+| New or modified shell scripts (`.sh`) | shellcheck (via trunk)                                  |
+
+## Trunk Commands (Prefer Over Direct Tools)
+
+```bash
+# Formatting only (fast, <2s)
+trunk fmt
+
+# Full lint + security scan + auto-fix
+trunk check --fix
+
+# Targeted: single file
+trunk check terraform/main.tf --fix
+
+# Targeted: single linter
+trunk check --filter=checkov --fix
+
+# Full project scan (use at end of task)
+trunk check --all
+
+# Scoped to changed files (for large changes)
+trunk check --fix terraform/main.tf terraform/variables.tf
+```
+
+Do NOT invoke linters directly:
+
+```bash
+# Bad
+terraform fmt .
+tflint .
+checkov -d .
+
+# Good
+trunk check --fix
+```
+
+## Workflow
+
+1. Make code changes
+2. Run `trunk check --fix` on changed files
+3. If Terraform files changed, also run `terraform validate` in `terraform/`
+4. If lint/security errors remain, fix them
+5. Re-run until clean
+
+## Final Validation
+
+At the **end of a task or implementation**, run full project checks:
+
+```bash
+trunk check --all        # Entire project is green
+cd terraform && terraform validate  # Config is valid
+```
+
+Only consider the task complete when:
+
+- All lints pass (`trunk check --all` shows zero issues)
+- Terraform validates successfully
+- No unformatted files remain

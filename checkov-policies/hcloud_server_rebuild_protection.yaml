@@ -1,0 +1,13 @@
+metadata:
+  id: CKV2_HCLOUD_7
+  name: Ensure Hetzner server has rebuild protection enabled
+  category: GENERAL_SECURITY
+  severity: MEDIUM
+  guideline: https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/resources/server
+
+definition:
+  cond_type: attribute
+  resource_types:
+    - hcloud_server
+  attribute: rebuild_protection
+  operator: is_true

@@ -1,0 +1,13 @@
+metadata:
+  id: CKV2_HCLOUD_8
+  name: Ensure Hetzner server has cloud-init user_data configured
+  category: GENERAL_SECURITY
+  severity: HIGH
+  guideline: https://cloudinit.readthedocs.io/en/latest/
+
+definition:
+  cond_type: attribute
+  resource_types:
+    - hcloud_server
+  attribute: user_data
+  operator: exists

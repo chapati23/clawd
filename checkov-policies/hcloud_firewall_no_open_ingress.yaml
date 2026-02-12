@@ -1,0 +1,19 @@
+metadata:
+  id: CKV2_HCLOUD_5
+  name: Ensure Hetzner firewall does not allow ingress from 0.0.0.0/0
+  category: NETWORKING
+  severity: HIGH
+  guideline: https://docs.hetzner.cloud/#firewalls
+
+# Fails if ANY rule has source_ips containing 0.0.0.0/0.
+# This catches wide-open SSH, HTTP, or any other port.
+# If you intentionally need public access (e.g. web server on 80/443),
+# suppress this check for that specific resource with a checkov:skip comment.
+definition:
+  not:
+    - cond_type: attribute
+      resource_types:
+        - hcloud_firewall
+      attribute: rule.*.source_ips
+      operator: contains
+      value: 0.0.0.0/0

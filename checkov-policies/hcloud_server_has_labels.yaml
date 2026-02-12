@@ -1,0 +1,13 @@
+metadata:
+  id: CKV2_HCLOUD_3
+  name: Ensure Hetzner server has labels for organization
+  category: CONVENTION
+  severity: LOW
+  guideline: https://docs.hetzner.cloud/#labels
+
+definition:
+  cond_type: attribute
+  resource_types:
+    - hcloud_server
+  attribute: labels
+  operator: is_not_empty

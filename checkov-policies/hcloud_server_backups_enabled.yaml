@@ -1,0 +1,13 @@
+metadata:
+  id: CKV2_HCLOUD_1
+  name: Ensure Hetzner server has backups enabled
+  category: BACKUP_AND_RECOVERY
+  severity: MEDIUM
+  guideline: https://docs.hetzner.cloud/#servers-create-a-server
+
+definition:
+  cond_type: attribute
+  resource_types:
+    - hcloud_server
+  attribute: backups
+  operator: is_true

@@ -1,0 +1,13 @@
+metadata:
+  id: CKV2_HCLOUD_4
+  name: Ensure Hetzner firewall has delete protection enabled
+  category: GENERAL_SECURITY
+  severity: MEDIUM
+  guideline: https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs#delete-protection
+
+definition:
+  cond_type: attribute
+  resource_types:
+    - hcloud_firewall
+  attribute: delete_protection
+  operator: is_true

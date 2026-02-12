@@ -1,0 +1,13 @@
+metadata:
+  id: CKV2_HCLOUD_6
+  name: Ensure Hetzner server has SSH keys attached
+  category: GENERAL_SECURITY
+  severity: HIGH
+  guideline: https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/resources/server
+
+definition:
+  cond_type: attribute
+  resource_types:
+    - hcloud_server
+  attribute: ssh_keys
+  operator: is_not_empty

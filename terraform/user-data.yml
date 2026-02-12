@@ -7,7 +7,7 @@ users:
   - name: molt
     groups: sudo
     shell: /bin/bash
-    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    sudo: ALL=(ALL) NOPASSWD:ALL
     ssh_authorized_keys:
       - ${SSH_PUBLIC_KEY}
 
@@ -17,6 +17,14 @@ users:
 package_update: true
 package_upgrade: true
 timezone: Europe/Berlin
+
+# Prevent interactive debconf dialogs (e.g. kernel upgrade notices)
+bootcmd:
+  - [
+      sh,
+      -c,
+      echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections,
+    ]
 
 packages:
   - ca-certificates
@@ -47,11 +55,12 @@ runcmd:
   - systemctl enable --now fail2ban
 
   # Enable unattended security upgrades
-  - dpkg-reconfigure -f noninteractive unattended-upgrades
+  - DEBIAN_FRONTEND=noninteractive dpkg-reconfigure -f noninteractive unattended-upgrades
 
-  # Install Node.js 22.x via NodeSource
+  # Install Node.js 22.x via NodeSource (remove system Node 18 first)
+  - DEBIAN_FRONTEND=noninteractive apt-get remove -y nodejs libnode109 2>/dev/null || true
   - curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-  - apt-get install -y nodejs
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
 
   # Install OpenClaw globally
   - npm install -g openclaw@latest

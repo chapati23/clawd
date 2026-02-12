@@ -6,3 +6,7 @@
 
 # Secrets — use TF_VAR_hcloud_token env var instead of committing this
 terraform.tfvars
+
+# Generated SSH keys
+id_ed25519
+id_ed25519.pub
