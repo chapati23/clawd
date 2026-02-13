@@ -9,7 +9,7 @@ set -euo pipefail
 # Sets up GPG keys, clones the encrypted credential
 # store, and verifies access.
 #
-# Usage: ./credentials-server-setup.sh <bot-name> <key.age> <age-identity> <deploy-key> [sha256]
+# Usage: ./credentials-server-setup.sh <bot-name> <key-bundle.asc> <deploy-key>
 #
 # Typically invoked by setup.sh via SSH, not manually.
 # ================================================
@@ -26,11 +26,9 @@ ok() { printf '%b[ok]%b    %s\n' "${GREEN}" "${NC}" "$*"; }
 warn() { printf '%b[warn]%b  %s\n' "${YELLOW}" "${NC}" "$*"; }
 error() { printf '%b[error]%b %s\n' "${RED}" "${NC}" "$*" >&2; }
 
-BOT_NAME="${1:?Usage: ./credentials-server-setup.sh <bot-name> <key.age> <age-id> <deploy-key> [sha256]}"
-AGE_BACKUP="${2:?Provide age-encrypted key backup}"
-AGE_IDENTITY="${3:?Provide age identity file}"
-DEPLOY_KEY="${4:?Provide SSH deploy key}"
-EXPECTED_SHA256="${5:-}"
+BOT_NAME="${1:?Usage: ./credentials-server-setup.sh <bot-name> <key-bundle.asc> <deploy-key>}"
+KEY_BUNDLE="${2:?Provide decrypted GPG key bundle (.asc)}"
+DEPLOY_KEY="${3:?Provide SSH deploy key}"
 PASS_REPO="${PASS_REPO:?PASS_REPO must be set (e.g. git@github.com:user/repo.git)}"
 
 echo ""
@@ -41,7 +39,7 @@ echo "-------------------------------------------"
 # 0. Verify inputs exist
 # --------------------------------------------------
 
-for f in "${AGE_BACKUP}" "${AGE_IDENTITY}" "${DEPLOY_KEY}"; do
+for f in "${KEY_BUNDLE}" "${DEPLOY_KEY}"; do
   if [[ ! -f "${f}" ]]; then
     error "File not found: ${f}"
     exit 1
@@ -50,32 +48,16 @@ done
 ok "All input files present"
 
 # --------------------------------------------------
-# 1. Verify backup integrity
-# --------------------------------------------------
-
-if [[ -n "${EXPECTED_SHA256}" ]]; then
-  info "Verifying backup integrity..."
-  ACTUAL=$(sha256sum "${AGE_BACKUP}" | awk '{print $1}')
-  if [[ "${ACTUAL}" != "${EXPECTED_SHA256}" ]]; then
-    error "SHA-256 mismatch! Backup may be corrupted or tampered with."
-    error "Expected: ${EXPECTED_SHA256}"
-    error "Actual:   ${ACTUAL}"
-    exit 1
-  fi
-  ok "Integrity verified"
-fi
-
-# --------------------------------------------------
-# 2. Install dependencies
+# 1. Install dependencies
 # --------------------------------------------------
 
 info "Installing credential management packages..."
 sudo apt-get update -qq
-sudo apt-get install -y -qq pass pass-extension-otp age gnupg git
+sudo apt-get install -y -qq pass pass-extension-otp gnupg git
 ok "Packages installed"
 
 # --------------------------------------------------
-# 3. Ensure NTP (needed for TOTP)
+# 2. Ensure NTP (needed for TOTP)
 # --------------------------------------------------
 
 info "Verifying NTP..."
@@ -83,7 +65,7 @@ sudo timedatectl set-ntp true
 ok "NTP enabled"
 
 # --------------------------------------------------
-# 4. Set up SSH deploy key for GitHub
+# 3. Set up SSH deploy key for GitHub
 # --------------------------------------------------
 
 info "Configuring SSH deploy key for GitHub..."
@@ -104,7 +86,7 @@ ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
 ok "SSH deploy key configured"
 
 # --------------------------------------------------
-# 5. Import GPG key (via tmpfs to keep key out of disk)
+# 4. Import GPG key (via tmpfs to keep key out of disk)
 # --------------------------------------------------
 
 info "Importing GPG key..."
@@ -123,7 +105,8 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM ERR
 
-age -d -i "${AGE_IDENTITY}" "${AGE_BACKUP}" > "${TMPDIR_SECURE}/key.asc"
+# Key bundle was decrypted locally — move to tmpfs for import, then wipe
+mv "${KEY_BUNDLE}" "${TMPDIR_SECURE}/key.asc"
 gpg --batch --import "${TMPDIR_SECURE}/key.asc" 2>&1
 
 # Trust imported keys
@@ -136,7 +119,7 @@ BOT_KEY_ID=$(gpg --list-keys --keyid-format long "bot-${BOT_NAME}@openclaw.local
 ok "Bot GPG key imported: ${BOT_KEY_ID}"
 
 # --------------------------------------------------
-# 6. Configure GPG agent
+# 5. Configure GPG agent
 # --------------------------------------------------
 
 mkdir -p ~/.gnupg && chmod 700 ~/.gnupg
@@ -147,7 +130,7 @@ EOF
 gpgconf --kill gpg-agent 2>/dev/null || true
 
 # --------------------------------------------------
-# 7. Clone credential store
+# 6. Clone credential store
 # --------------------------------------------------
 
 if [[ -d "${HOME}/.password-store/.git" ]]; then
@@ -167,7 +150,7 @@ else
 fi
 
 # --------------------------------------------------
-# 8. Verify access
+# 7. Verify access
 # --------------------------------------------------
 
 info "Verifying credential access..."
@@ -180,11 +163,11 @@ if [[ "${BOT_ENTRIES}" -eq 0 ]] && [[ "${SHARED_ENTRIES}" -eq 0 ]]; then
 fi
 
 # --------------------------------------------------
-# 9. Clean up deploy materials from server
+# 8. Clean up deploy materials from server
 # --------------------------------------------------
 
 info "Cleaning up deploy materials..."
-rm -f "${AGE_BACKUP}" "${AGE_IDENTITY}" "${DEPLOY_KEY}"
+rm -f "${KEY_BUNDLE}" "${DEPLOY_KEY}"
 ok "Deploy materials removed from server"
 
 # --------------------------------------------------

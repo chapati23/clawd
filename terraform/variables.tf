@@ -66,3 +66,9 @@ variable "telegram_bot_token" {
   default     = ""
   description = "Telegram bot token from @BotFather. Used to auto-configure OpenClaw on boot."
 }
+
+variable "openclaw_version" {
+  type        = string
+  default     = "latest"
+  description = "OpenClaw version to install. Pin to a specific version (e.g. '1.2.3') for reproducible builds."
+}

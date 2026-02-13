@@ -236,7 +236,7 @@ ok "Terraform initialized"
 
 step "Provisioning infrastructure"
 
-terraform -chdir="${TF_DIR}" apply -auto-approve -input=false
+terraform -chdir="${TF_DIR}" apply -input=false
 ok "Infrastructure provisioned"
 
 # ==============================================================
@@ -244,8 +244,16 @@ ok "Infrastructure provisioned"
 # ==============================================================
 
 SERVER_IP="$(terraform -chdir="${TF_DIR}" output -raw server_ip)"
-SSH_CMD="ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR molt@${SERVER_IP}"
-SCP_CMD="scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
+
+# Session-scoped known_hosts: accept the host key on first connection,
+# then verify it for all subsequent connections in this setup run.
+SETUP_KNOWN_HOSTS="$(mktemp)"
+DECRYPTED_KEY=""
+cleanup_setup() { rm -f "${SETUP_KNOWN_HOSTS}" "${DECRYPTED_KEY}"; }
+trap cleanup_setup EXIT
+
+SSH_CMD="ssh -i ${SSH_KEY} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=${SETUP_KNOWN_HOSTS} -o LogLevel=ERROR molt@${SERVER_IP}"
+SCP_CMD="scp -i ${SSH_KEY} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=${SETUP_KNOWN_HOSTS} -o LogLevel=ERROR"
 
 # Clear stale host key so manual SSH works without warnings
 ssh-keygen -R "${SERVER_IP}" &>/dev/null || true
@@ -315,31 +323,41 @@ if ${USE_CREDENTIALS}; then
       ${SSH_CMD} "cd ~/.password-store && git pull --ff-only" 2>/dev/null || true
       ok "Credential store updated on server"
     else
-      # Get SHA-256 for integrity verification
-      BOT_KEY_SHA256=""
+      # Verify integrity of age-encrypted bundle locally
       if [[ -f "${BOT_KEY_AGE}.sha256" ]]; then
-        BOT_KEY_SHA256=$(awk '{print $1}' "${BOT_KEY_AGE}.sha256")
+        EXPECTED_SHA256=$(awk '{print $1}' "${BOT_KEY_AGE}.sha256")
+        ACTUAL_SHA256=$(shasum -a 256 "${BOT_KEY_AGE}" | awk '{print $1}')
+        if [[ "${ACTUAL_SHA256}" != "${EXPECTED_SHA256}" ]]; then
+          error "SHA-256 mismatch on ${BOT_KEY_AGE} — backup may be corrupted or tampered with."
+          exit 1
+        fi
+        ok "Bundle integrity verified (SHA-256)"
       fi
+
+      # Decrypt age bundle locally — age identity never leaves this machine
+      DECRYPTED_KEY="$(mktemp)"
+      age -d -i "${AGE_KEY_FILE}" "${BOT_KEY_AGE}" > "${DECRYPTED_KEY}"
 
       # Determine pass repo URL
       PASS_REPO=$(git -C "${HOME}/.password-store" remote get-url origin 2>/dev/null || true)
 
-      # Clean up stale deploy materials from previous runs (read-only files block scp)
-      ${SSH_CMD} "rm -f ~/credentials-server-setup.sh ~/bot-*-key.age ~/.age-recovery-key.txt ~/bot-*-deploy-key" 2>/dev/null || true
+      # Clean up stale deploy materials from previous runs
+      ${SSH_CMD} "rm -f ~/credentials-server-setup.sh ~/bot-*-key.asc ~/bot-*-deploy-key" 2>/dev/null || true
 
       info "Copying deploy materials to server..."
+      ${SCP_CMD} "${DECRYPTED_KEY}" "molt@${SERVER_IP}:~/bot-key-bundle.asc"
       ${SCP_CMD} \
         "${SCRIPT_DIR}/scripts/credentials-server-setup.sh" \
-        "${BOT_KEY_AGE}" \
-        "${AGE_KEY_FILE}" \
         "${DEPLOY_KEY}" \
         "molt@${SERVER_IP}:~/"
 
       info "Running credential setup on server..."
-      ${SSH_CMD} "PASS_REPO='${PASS_REPO}' bash ~/credentials-server-setup.sh '${BOT_NAME}' 'bot-${BOT_NAME}-key.age' '.age-recovery-key.txt' 'bot-${BOT_NAME}-deploy-key' '${BOT_KEY_SHA256}'"
+      ${SSH_CMD} "PASS_REPO='${PASS_REPO}' bash ~/credentials-server-setup.sh '${BOT_NAME}' 'bot-key-bundle.asc' 'bot-${BOT_NAME}-deploy-key'"
 
-      # Clean up the setup script from server (deploy materials are cleaned by the script itself)
+      # Clean up: setup script on server, decrypted key locally
       ${SSH_CMD} "rm -f ~/credentials-server-setup.sh" 2>/dev/null || true
+      rm -f "${DECRYPTED_KEY}"
+      DECRYPTED_KEY=""
 
       ok "Credentials deployed to server"
     fi
@@ -417,7 +435,9 @@ fi
 
 step "Registering SSH host key"
 
-ssh-keyscan -H "${SERVER_IP}" >>~/.ssh/known_hosts 2>/dev/null
+# Use the host key verified during this session (rather than a fresh scan)
+ssh-keygen -R "${SERVER_IP}" &>/dev/null || true
+cat "${SETUP_KNOWN_HOSTS}" >> ~/.ssh/known_hosts
 ok "Host key added to ~/.ssh/known_hosts"
 
 # ==============================================================

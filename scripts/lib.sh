@@ -157,12 +157,13 @@ tfvars_update() {
 
   # Only update if the key already exists in the file
   if grep -q "^${key}[[:space:]]*=" "${file}"; then
-    if is_macos; then
-      sed -i '.bak' "s|^${key}[[:space:]]*=.*|${key} = \"${value}\"|" "${file}"
-    else
-      cp "${file}" "${file}.bak"
-      sed -i "s|^${key}[[:space:]]*=.*|${key} = \"${value}\"|" "${file}"
-    fi
+    cp "${file}" "${file}.bak"
+    # Use awk with ENVIRON to avoid sed injection via special characters in value
+    KEY="${key}" VALUE="${value}" awk '
+      BEGIN { key = ENVIRON["KEY"]; val = ENVIRON["VALUE"] }
+      $0 ~ "^"key"[[:space:]]*=" { print key " = \"" val "\""; next }
+      { print }
+    ' "${file}.bak" > "${file}"
   fi
 }
 
