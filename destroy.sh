@@ -1,24 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ----------------------------------------------
-# Colors
-# ----------------------------------------------
-
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-NC='\033[0m'
-
-info() { printf '%b[info]%b  %s\n' "${CYAN}" "${NC}" "$*"; }
-ok() { printf '%b[ok]%b    %s\n' "${GREEN}" "${NC}" "$*"; }
-warn() { printf '%b[warn]%b  %s\n' "${YELLOW}" "${NC}" "$*"; }
-error() { printf '%b[error]%b %s\n' "${RED}" "${NC}" "$*" >&2; }
-step() { printf '\n%b> %s%b\n' "${BOLD}" "$*" "${NC}"; }
-
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# shellcheck source=scripts/lib.sh
+source "${SCRIPT_DIR}/scripts/lib.sh"
 TF_DIR="${SCRIPT_DIR}/terraform"
 
 # ----------------------------------------------
