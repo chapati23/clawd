@@ -1,107 +1,158 @@
-# Server Upgrade: CAX21 (8 GB RAM)
+# Server Upgrade: cx23 → cx32 — Migration Plan
 
-## Context
+## ⚠️ CRITICAL: Do NOT just `terraform apply`
 
-Philip requested an upgrade from the current server plan to **CAX21** to handle multiple parallel OpenClaw sessions better. Currently experiencing slowdowns when running 2-3 sessions in parallel due to memory pressure.
+Terraform treats `server_type` changes as **destroy + recreate**, which would **wipe all data**. We must rescale via Hetzner API/Console first, then sync Terraform state.
 
-**Current Situation:**
-- Server: moltbot-01
-- Resources: 2 vCPU, ~3.8 GB RAM, x86_64 architecture
-- Issue: Hitting memory limits with parallel sessions (touching swap)
-- Gateway process: ~717 MB resident, each session adds 300-500 MB
+## What Lives on This Server (State Inventory)
 
-**Target Plan:**
-- **CAX21**: 4 vCPU (ARM64), 8 GB RAM, 80 GB SSD
-- Cost: €8.46/month (vs current ~€4.23/month for CAX11 or ~€5.83/month for CX22)
-- Benefit: 2x RAM, 2x CPU, better parallel session handling
+### Critical (irreplaceable without backup)
+| Item | Location | Backed Up? |
+|------|----------|------------|
+| OpenClaw config | `~/.openclaw/openclaw.json` | ❌ Not in git |
+| OpenClaw identity/auth | `~/.openclaw/identity/` | ❌ Not in git |
+| Subagent run history | `~/.openclaw/subagents/runs.json` | ❌ Not in git |
+| Cron job definitions | OpenClaw internal state | ❌ In memory/config |
+| GPG keys | `~/.gnupg/` | ❌ Local only |
+| SSH keys | `~/.ssh/` (github_giskard, github-deploy) | ❌ Local only |
+| Password store | `~/.password-store/` (1.2 MB) | ✅ GitHub private repo |
+| Credential backup cron | System crontab (`0 3 * * *`) | ❌ Set up by setup.sh |
 
-## Important Decision Point ⚠️
+### Important (in git, recoverable)
+| Item | Location | Backed Up? |
+|------|----------|------------|
+| Workspace (memory, skills, etc.) | `~/.openclaw/workspace/` | ✅ Git (chapati23/Giskard) |
+| Custom skills | `~/.openclaw/workspace/skills/` | ✅ Git |
+| Memory files | `~/.openclaw/workspace/memory/` | ✅ Git |
+| MEMORY.md, AGENTS.md, etc. | `~/.openclaw/workspace/` | ✅ Git |
 
-**Current server is x86_64 (`uname -m` shows x86_64).**
-**CAX21 is ARM64 architecture.**
+### Recreatable (from setup.sh / cloud-init)
+| Item | How to Recreate |
+|------|----------------|
+| Node.js, npm, OpenClaw | cloud-init / `npm i -g openclaw` |
+| Playwright + Chromium | `npx playwright install chromium` |
+| systemd user service | `openclaw onboard --install-daemon` |
+| fail2ban, ufw, etc. | cloud-init |
 
-**This means:**
-1. **Cannot do in-place resize** — requires full rebuild
-2. **Potential compatibility issues** with OpenClaw or dependencies on ARM
-3. **Alternative option**: Upgrade to CX32 (x86, 4 vCPU, 8 GB RAM, €11.66/month) for safer in-place upgrade
+## Safe Migration Procedure
 
-**Question for Philip:**
-- Do you want CAX21 (ARM, cheaper, requires rebuild + compatibility check)?
-- Or CX32 (x86, more expensive, safer in-place upgrade)?
+### Step 1: Pre-flight Backup (on server, ~2 min)
 
-## Implementation Tasks
+```bash
+# 1a. Push workspace to git
+cd ~/.openclaw/workspace && git add -A && git commit -m "pre-upgrade backup" && git push
 
-### Option A: CAX21 (ARM64, requires rebuild)
+# 1b. Backup OpenClaw config + identity (NOT in git)
+tar czf /tmp/openclaw-state-backup.tar.gz \
+  ~/.openclaw/openclaw.json \
+  ~/.openclaw/openclaw.json.bak* \
+  ~/.openclaw/identity/ \
+  ~/.openclaw/subagents/ \
+  ~/.openclaw/devices/ \
+  ~/.openclaw/update-check.json
 
-1. **Update Terraform config:**
-   - File: `terraform/variables.tf`
-   - Change: `default = "cx23"` → `default = "cax21"`
-   - Update description to: `"cax21 = 4 vCPU (ARM64), 8 GB RAM, 80 GB SSD (Ampere Altra, dedicated)"`
+# 1c. Backup GPG + SSH keys
+tar czf /tmp/keys-backup.tar.gz \
+  ~/.gnupg/ \
+  ~/.ssh/
 
-2. **Verify cloud-init compatibility:**
-   - File: `terraform/user-data.yml`
-   - Check: OpenClaw install script (`npm install -g openclaw@${OPENCLAW_VERSION}`) should work on ARM64
-   - Node.js supports ARM64, so likely fine
-   - Check any binary dependencies in OpenClaw (Playwright, etc.)
+# 1d. Download backups to your Mac
+scp molt@<server-ip>:/tmp/openclaw-state-backup.tar.gz ~/Desktop/
+scp molt@<server-ip>:/tmp/keys-backup.tar.gz ~/Desktop/
 
-3. **Plan the migration:**
-   - This will **destroy and recreate** the server
-   - Need to backup: 
-     - `~/.openclaw/workspace/` (git push before destroy)
-     - `~/.openclaw/config/` (git push clawd config)
-     - Credential store (already backed up to GitHub)
-   - Downtime: ~10-15 minutes
+# 1e. Verify credential store is pushed
+cd ~/.password-store && git status  # should be clean
+```
 
-4. **Update README:**
-   - Document the server type change
-   - Note ARM64 architecture
-   - Update cost estimate
+### Step 2: Rescale via Hetzner Console (~3 min downtime)
 
-### Option B: CX32 (x86_64, in-place upgrade)
+**Do this in the Hetzner Cloud Console (console.hetzner.cloud), NOT via Terraform:**
 
-1. **Update Terraform config:**
-   - File: `terraform/variables.tf`
-   - Change: `default = "cx23"` → `default = "cx32"`
-   - Update description to: `"cx32 = 4 vCPU, 8 GB RAM, 80 GB SSD (shared, Gen3)"`
+1. Go to your project → Servers → moltbot-01
+2. Click **Power** → **Power Off** (wait for it to stop)
+3. Click **Rescale** in the left sidebar
+4. Select **CX32** (4 vCPU, 8 GB, 80 GB)
+5. **IMPORTANT:** Leave "Resize disk" CHECKED (to get 80 GB disk)
+6. Click **Rescale** (red button)
+7. Server auto-restarts after rescale
 
-2. **Check if Hetzner allows in-place upgrade:**
-   - Some server types allow resize without rebuild
-   - If not, same migration steps as Option A
+### Step 3: Post-Rescale Disk Resize (if needed)
 
-3. **Update README:**
-   - Document the server type change
-   - Update cost estimate
+Hetzner may not auto-expand the partition. After the server is back up:
 
-## Testing Checklist
+```bash
+ssh molt@<server-ip>
 
-After upgrade (either option):
+# Check current disk
+df -h /
+# If still showing ~38G, need to resize:
 
-- [ ] SSH access works
-- [ ] OpenClaw gateway starts: `systemctl status openclaw-gateway`
-- [ ] Workspace git repo intact: `ls ~/.openclaw/workspace/`
-- [ ] Telegram bot responds
-- [ ] Spawn 3 parallel sessions and check memory: `free -h`
-- [ ] Verify no swap usage under load
-- [ ] Check process memory: `ps aux | grep openclaw-gateway`
+# For ext4 (most likely):
+sudo growpart /dev/sda 1
+sudo resize2fs /dev/sda1
 
-## Files to Modify
+# Verify
+df -h /  # Should now show ~78G
+free -h   # Should show ~7.7 GB
+nproc     # Should show 4
+```
 
-- `terraform/variables.tf` - Update `server_type` default
-- `README.md` - Update server specs and cost info
-- This file (`WORK.md`) - Delete after completion
+### Step 4: Verify Everything Works
 
-## Cost Impact
+```bash
+# OpenClaw running?
+DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus systemctl --user status openclaw-gateway
 
-- Current: ~€4-6/month
-- CAX21: €8.46/month (+€3-4/month)
-- CX32: €11.66/month (+€6-8/month)
+# If not running, start it:
+DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus systemctl --user start openclaw-gateway
 
-Philip approved the upgrade for better performance with parallel sessions.
+# Test Telegram bot responds
+# Check cron jobs still exist (they're in OpenClaw's internal state, should persist)
+# Verify workspace intact
+ls ~/.openclaw/workspace/MEMORY.md
+```
 
----
+### Step 5: Sync Terraform State
 
-## Next Steps
+On your Mac, after the rescale is confirmed working:
 
-1. **Philip**: Decide CAX21 (ARM, cheaper) vs CX32 (x86, safer)
-2. **Claude Code**: Implement the chosen option
-3. **Giskard**: Backup workspace, run `terraform apply`, verify post-upgrade
+```bash
+cd clawd/terraform
+
+# Import the new server type into Terraform state
+terraform refresh
+
+# Now update variables.tf to match reality (cx23 → cx32)
+# This is what the PR already does
+
+# Verify no diff
+terraform plan
+# Should show: "No changes. Infrastructure is up-to-date."
+```
+
+Then merge the PR.
+
+## What Could Go Wrong
+
+| Risk | Likelihood | Mitigation |
+|------|-----------|------------|
+| Disk doesn't auto-expand | Medium | Manual growpart + resize2fs (Step 3) |
+| OpenClaw doesn't restart | Low | systemctl --user start, check logs |
+| Cron jobs lost | Very Low | OpenClaw stores in config, survives reboot |
+| SSH keys broken | None | Keys are on disk, preserved by rescale |
+| Partition table issues | Very Low | Hetzner Rescue System available |
+
+## Total Downtime Estimate
+
+- Power off: ~30 seconds
+- Rescale: ~1-2 minutes
+- Boot + disk resize: ~1-2 minutes
+- **Total: ~3-5 minutes**
+
+## Summary
+
+1. **Backup** (safety net — data is preserved, but always backup)
+2. **Rescale in Console** (NOT terraform apply)
+3. **Resize disk** if needed
+4. **Verify** OpenClaw + Telegram
+5. **Sync Terraform** state + merge PR
