@@ -19,7 +19,7 @@ variable "location" {
 variable "server_type" {
   type        = string
   default     = "cx32"
-  description = "Hetzner server type. cx32 = 4 vCPU (x86), 8 GB RAM, 80 GB SSD (shared, Gen3)."
+  description = "Hetzner server type. cx32 = 4 vCPU (x86), 8 GB RAM, 160 GB SSD (shared, Gen3)."
 }
 
 variable "enable_protection" {
