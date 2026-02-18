@@ -95,6 +95,10 @@ resource "hcloud_server" "openclaw" {
   }
 
   user_data = local.user_data
+
+  lifecycle {
+    ignore_changes = [user_data]
+  }
 }
 
 # ──────────────────────────────────────────────

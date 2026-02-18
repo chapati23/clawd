@@ -205,7 +205,7 @@ hcloud_token = "${HCLOUD_TOKEN}"
 
 server_name = "${BOT_NAME}"
 location    = "nbg1"
-server_type = "cx23"
+server_type = "cpx32"
 
 # API tokens for OpenClaw bootstrapping (fill in to auto-configure on boot)
 telegram_bot_token = "${TF_VAR_telegram_bot_token:-}"

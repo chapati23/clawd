@@ -1,4 +1,4 @@
-# Server Upgrade: cx23 → cx32 — Migration Plan
+# Server Upgrade: cx23 → cpx32 — Migration Plan
 
 ## ⚠️ CRITICAL: Do NOT just `terraform apply`
 
@@ -7,32 +7,35 @@ Terraform treats `server_type` changes as **destroy + recreate**, which would **
 ## What Lives on This Server (State Inventory)
 
 ### Critical (irreplaceable without backup)
-| Item | Location | Backed Up? |
-|------|----------|------------|
-| OpenClaw config | `~/.openclaw/openclaw.json` | ❌ Not in git |
-| OpenClaw identity/auth | `~/.openclaw/identity/` | ❌ Not in git |
-| Subagent run history | `~/.openclaw/subagents/runs.json` | ❌ Not in git |
-| Cron job definitions | OpenClaw internal state | ❌ In memory/config |
-| GPG keys | `~/.gnupg/` | ❌ Local only |
-| SSH keys | `~/.ssh/` (github_giskard, github-deploy) | ❌ Local only |
-| Password store | `~/.password-store/` (1.2 MB) | ✅ GitHub private repo |
-| Credential backup cron | System crontab (`0 3 * * *`) | ❌ Set up by setup.sh |
+
+| Item                   | Location                                  | Backed Up?             |
+| ---------------------- | ----------------------------------------- | ---------------------- |
+| OpenClaw config        | `~/.openclaw/openclaw.json`               | ❌ Not in git          |
+| OpenClaw identity/auth | `~/.openclaw/identity/`                   | ❌ Not in git          |
+| Subagent run history   | `~/.openclaw/subagents/runs.json`         | ❌ Not in git          |
+| Cron job definitions   | OpenClaw internal state                   | ❌ In memory/config    |
+| GPG keys               | `~/.gnupg/`                               | ❌ Local only          |
+| SSH keys               | `~/.ssh/` (github_giskard, github-deploy) | ❌ Local only          |
+| Password store         | `~/.password-store/` (1.2 MB)             | ✅ GitHub private repo |
+| Credential backup cron | System crontab (`0 3 * * *`)              | ❌ Set up by setup.sh  |
 
 ### Important (in git, recoverable)
-| Item | Location | Backed Up? |
-|------|----------|------------|
-| Workspace (memory, skills, etc.) | `~/.openclaw/workspace/` | ✅ Git (chapati23/Giskard) |
-| Custom skills | `~/.openclaw/workspace/skills/` | ✅ Git |
-| Memory files | `~/.openclaw/workspace/memory/` | ✅ Git |
-| MEMORY.md, AGENTS.md, etc. | `~/.openclaw/workspace/` | ✅ Git |
+
+| Item                             | Location                        | Backed Up?                 |
+| -------------------------------- | ------------------------------- | -------------------------- |
+| Workspace (memory, skills, etc.) | `~/.openclaw/workspace/`        | ✅ Git (chapati23/Giskard) |
+| Custom skills                    | `~/.openclaw/workspace/skills/` | ✅ Git                     |
+| Memory files                     | `~/.openclaw/workspace/memory/` | ✅ Git                     |
+| MEMORY.md, AGENTS.md, etc.       | `~/.openclaw/workspace/`        | ✅ Git                     |
 
 ### Recreatable (from setup.sh / cloud-init)
-| Item | How to Recreate |
-|------|----------------|
-| Node.js, npm, OpenClaw | cloud-init / `npm i -g openclaw` |
-| Playwright + Chromium | `npx playwright install chromium` |
-| systemd user service | `openclaw onboard --install-daemon` |
-| fail2ban, ufw, etc. | cloud-init |
+
+| Item                   | How to Recreate                     |
+| ---------------------- | ----------------------------------- |
+| Node.js, npm, OpenClaw | cloud-init / `npm i -g openclaw`    |
+| Playwright + Chromium  | `npx playwright install chromium`   |
+| systemd user service   | `openclaw onboard --install-daemon` |
+| fail2ban, ufw, etc.    | cloud-init                          |
 
 ## Safe Migration Procedure
 
@@ -122,7 +125,7 @@ cd clawd/terraform
 # Import the new server type into Terraform state
 terraform refresh
 
-# Now update variables.tf to match reality (cx23 → cx32)
+# Now update variables.tf to match reality (cx23 → cpx32)
 # This is what the PR already does
 
 # Verify no diff
@@ -134,13 +137,13 @@ Then merge the PR.
 
 ## What Could Go Wrong
 
-| Risk | Likelihood | Mitigation |
-|------|-----------|------------|
-| Disk doesn't auto-expand | Medium | Manual growpart + resize2fs (Step 3) |
-| OpenClaw doesn't restart | Low | systemctl --user start, check logs |
-| Cron jobs lost | Very Low | OpenClaw stores in config, survives reboot |
-| SSH keys broken | None | Keys are on disk, preserved by rescale |
-| Partition table issues | Very Low | Hetzner Rescue System available |
+| Risk                     | Likelihood | Mitigation                                 |
+| ------------------------ | ---------- | ------------------------------------------ |
+| Disk doesn't auto-expand | Medium     | Manual growpart + resize2fs (Step 3)       |
+| OpenClaw doesn't restart | Low        | systemctl --user start, check logs         |
+| Cron jobs lost           | Very Low   | OpenClaw stores in config, survives reboot |
+| SSH keys broken          | None       | Keys are on disk, preserved by rescale     |
+| Partition table issues   | Very Low   | Hetzner Rescue System available            |
 
 ## Total Downtime Estimate
 

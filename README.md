@@ -451,7 +451,7 @@ For reference, here's what the setup script automates:
 4. **Resolves tokens** — reads from `pass` -> env vars -> `terraform.tfvars` -> interactive prompt (in that order)
 5. **Generates/updates `terraform/terraform.tfvars`** — safely updates existing values, never deletes keys
 6. **Runs `terraform init`** (skips if already initialized)
-7. **Runs `terraform apply`** — creates SSH keypair, firewall, and cx23 server with Ubuntu 24.04
+7. **Runs `terraform apply`** — creates SSH keypair, firewall, and cpx23 server with Ubuntu 24.04
 8. **Waits for cloud-init** (~2-3 min) — polls until Node.js 22, OpenClaw, fail2ban, swap, and SSH hardening are all in place
 9. **Deploys credentials to server** — SCPs encrypted key bundle + deploy key, imports GPG keys, clones credential store
 10. **Deploys backup cron** — daily credential backup at 03:00
