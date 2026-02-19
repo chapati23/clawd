@@ -57,6 +57,12 @@ runcmd:
   # Enable unattended security upgrades
   - DEBIAN_FRONTEND=noninteractive dpkg-reconfigure -f noninteractive unattended-upgrades
 
+  # Install Google Cloud CLI (GPG-verified apt repo)
+  - curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /etc/apt/keyrings/cloud.google.gpg
+  - echo "deb [signed-by=/etc/apt/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" > /etc/apt/sources.list.d/google-cloud-sdk.list
+  - apt-get update
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y google-cloud-cli
+
   # Install Node.js 22.x via NodeSource (GPG-verified apt repo, not curl-to-bash)
   - DEBIAN_FRONTEND=noninteractive apt-get remove -y nodejs libnode109 2>/dev/null || true
   - install -m 0755 -d /etc/apt/keyrings
