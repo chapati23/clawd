@@ -18,5 +18,8 @@ terraform/terraform.tfvars.bak
 # Bot assets (not part of infrastructure)
 giskard/
 
+# direnv
+.envrc
+
 # OS
 .DS_Store

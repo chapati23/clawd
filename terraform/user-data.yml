@@ -57,13 +57,21 @@ runcmd:
   # Enable unattended security upgrades
   - DEBIAN_FRONTEND=noninteractive dpkg-reconfigure -f noninteractive unattended-upgrades
 
-  # Install Node.js 22.x via NodeSource (GPG-verified apt repo, not curl-to-bash)
-  - DEBIAN_FRONTEND=noninteractive apt-get remove -y nodejs libnode109 2>/dev/null || true
+  # Ensure keyrings directory exists for GPG-verified apt repos
   - install -m 0755 -d /etc/apt/keyrings
+
+  # Add Google Cloud CLI apt repo
+  - curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /etc/apt/keyrings/cloud.google.gpg
+  - echo "deb [signed-by=/etc/apt/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" > /etc/apt/sources.list.d/google-cloud-sdk.list
+
+  # Add Node.js 22.x apt repo (NodeSource, not curl-to-bash)
+  - DEBIAN_FRONTEND=noninteractive apt-get remove -y nodejs libnode109 2>/dev/null || true
   - curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
   - echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > /etc/apt/sources.list.d/nodesource.list
+
+  # Single apt-get update for both repos, then install
   - apt-get update
-  - DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y google-cloud-cli nodejs
 
   # Install OpenClaw globally
   - npm install -g openclaw@${OPENCLAW_VERSION}
