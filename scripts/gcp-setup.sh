@@ -134,6 +134,11 @@ gcloud iam service-accounts keys create "${TMPKEY}" \
 if pass_initialized; then
   pass insert -m -f "${PASS_PATH}" < "${TMPKEY}" &>/dev/null
   ok "Key stored in pass: ${PASS_PATH}"
+  if git -C "${HOME}/.password-store" push &>/dev/null; then
+    ok "Pushed to credentials repo"
+  else
+    warn "Could not push to credentials repo — run: cd ~/.password-store && git push"
+  fi
 else
   warn "pass not initialized — saving key to ~/.config/gcloud/${PROJECT_ID}-sa-key.json"
   mkdir -p ~/.config/gcloud
