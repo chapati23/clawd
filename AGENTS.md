@@ -87,7 +87,7 @@ make cred-status              # Show credential store status on server
 # Scripts (run from repo root)
 ./scripts/credentials-init.sh          # One-time credential bootstrap (MacBook)
 ./scripts/add-bot.sh <name> [yes|no]   # Add bot (optional shared access)
-./scripts/gcp-setup.sh <project> [bot] # GCP read-only SA for an agent
+./scripts/gcp-setup.sh <project> <bot> # GCP read-only SA for an agent
 ./scripts/credentials-rotate.sh <target>  # Rotate GPG key
 
 # Quality checks

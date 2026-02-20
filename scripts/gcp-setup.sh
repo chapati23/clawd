@@ -10,7 +10,7 @@ set -euo pipefail
 # current machine. Designed for agents that need to read
 # logs and service status but never modify infrastructure.
 #
-# Usage: ./scripts/gcp-setup.sh <gcp-project-id> [bot-name]
+# Usage: ./scripts/gcp-setup.sh <gcp-project-id> <bot-name>
 #
 # Prerequisites:
 #   - gcloud CLI installed (added by cloud-init)
@@ -33,12 +33,16 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib.sh
 source "${SCRIPT_DIR}/lib.sh"
 
-PROJECT_ID="${1:?Usage: ./scripts/gcp-setup.sh <gcp-project-id> [bot-name]}"
-BOT_NAME="${2:-giskard}"
+PROJECT_ID="${1:?Usage: ./scripts/gcp-setup.sh <gcp-project-id> <bot-name>}"
+BOT_NAME="${2:?Usage: ./scripts/gcp-setup.sh <gcp-project-id> <bot-name>}"
 
 SA_NAME="${BOT_NAME}-readonly"
 SA_EMAIL="${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 PASS_PATH="bot-${BOT_NAME}/gcp/${PROJECT_ID}/sa-key"
+
+TMPKEY=""
+cleanup() { [[ -n "${TMPKEY}" ]] && rm -f "${TMPKEY}"; }
+trap cleanup EXIT
 
 # --------------------------------------------------
 # Preflight
@@ -56,24 +60,22 @@ fi
 # Check if already set up
 if pass_entry_exists "${PASS_PATH}"; then
   info "Service account key already in pass at ${PASS_PATH}"
-  if gcloud auth list 2>/dev/null | grep -q "${SA_EMAIL}"; then
+  if gcloud auth list --format="value(account)" --filter="status:ACTIVE" 2>/dev/null | grep -qF "${SA_EMAIL}"; then
     ok "Already authenticated as ${SA_EMAIL}"
     exit 0
   else
     info "Key exists but not activated — re-activating..."
     TMPKEY="$(mktemp)"
-    trap 'rm -f "${TMPKEY}"' EXIT
     pass show "${PASS_PATH}" > "${TMPKEY}"
     gcloud auth activate-service-account --key-file="${TMPKEY}" --project="${PROJECT_ID}"
     gcloud config set project "${PROJECT_ID}"
-    rm -f "${TMPKEY}"
     ok "Authenticated as ${SA_EMAIL}"
     exit 0
   fi
 fi
 
 # Need an authenticated admin session to create the SA
-if ! gcloud auth list 2>/dev/null | grep -q "ACTIVE"; then
+if ! gcloud auth list --format="value(account)" --filter="status:ACTIVE" 2>/dev/null | grep -q .; then
   error "No active gcloud auth session."
   error "Ask the project owner to run this script from their machine,"
   error "or authenticate with: gcloud auth login --no-launch-browser"
@@ -123,7 +125,6 @@ done
 step "Creating service account key"
 
 TMPKEY="$(mktemp)"
-trap 'rm -f "${TMPKEY}"' EXIT
 
 gcloud iam service-accounts keys create "${TMPKEY}" \
   --iam-account="${SA_EMAIL}" \
@@ -131,7 +132,7 @@ gcloud iam service-accounts keys create "${TMPKEY}" \
 
 # Store in pass
 if pass_initialized; then
-  cat "${TMPKEY}" | pass insert -m -f "${PASS_PATH}" &>/dev/null
+  pass insert -m -f "${PASS_PATH}" < "${TMPKEY}" &>/dev/null
   ok "Key stored in pass: ${PASS_PATH}"
 else
   warn "pass not initialized — saving key to ~/.config/gcloud/${PROJECT_ID}-sa-key.json"
@@ -149,9 +150,6 @@ step "Activating service account"
 
 gcloud auth activate-service-account --key-file="${TMPKEY}" --project="${PROJECT_ID}"
 gcloud config set project "${PROJECT_ID}"
-
-rm -f "${TMPKEY}"
-TMPKEY=""
 
 # --------------------------------------------------
 # Done
