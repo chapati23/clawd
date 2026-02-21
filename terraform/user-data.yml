@@ -69,9 +69,13 @@ runcmd:
   - curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
   - echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > /etc/apt/sources.list.d/nodesource.list
 
-  # Single apt-get update for both repos, then install
+  # Add HashiCorp apt repo (Terraform)
+  - curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /etc/apt/keyrings/hashicorp.gpg
+  - echo "deb [signed-by=/etc/apt/keyrings/hashicorp.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" > /etc/apt/sources.list.d/hashicorp.list
+
+  # Single apt-get update for all repos, then install
   - apt-get update
-  - DEBIAN_FRONTEND=noninteractive apt-get install -y google-cloud-cli nodejs
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y google-cloud-cli nodejs terraform
 
   # Install OpenClaw globally
   - npm install -g openclaw@${OPENCLAW_VERSION}
