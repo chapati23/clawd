@@ -105,8 +105,9 @@ fi
 step "Granting read-only roles"
 
 ROLES=(
-  "roles/run.viewer"       # View Cloud Run services, revisions, logs
-  "roles/logging.viewer"   # View Cloud Logging entries
+  "roles/run.viewer"              # View Cloud Run services, revisions, logs
+  "roles/logging.viewer"          # View Cloud Logging entries
+  "roles/cloudscheduler.jobRunner" # Trigger Cloud Scheduler jobs (e.g. bun trigger)
 )
 
 for role in "${ROLES[@]}"; do
