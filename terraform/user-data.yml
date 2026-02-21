@@ -69,12 +69,156 @@ runcmd:
   - curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
   - echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > /etc/apt/sources.list.d/nodesource.list
 
-  # Single apt-get update for both repos, then install
+  # Add HashiCorp apt repo (Terraform)
+  - curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /etc/apt/keyrings/hashicorp.gpg
+  - echo "deb [signed-by=/etc/apt/keyrings/hashicorp.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" > /etc/apt/sources.list.d/hashicorp.list
+
+  # Single apt-get update for all repos, then install
   - apt-get update
-  - DEBIAN_FRONTEND=noninteractive apt-get install -y google-cloud-cli nodejs
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y google-cloud-cli nodejs terraform
 
   # Install OpenClaw globally
   - npm install -g openclaw@${OPENCLAW_VERSION}
+
+  # ──────────────────────────────────────────────
+  # Syncthing (official apt repo — not Ubuntu's stale version)
+  # ──────────────────────────────────────────────
+  - curl -fsSL https://syncthing.net/release-key.gpg | gpg --dearmor -o /etc/apt/keyrings/syncthing.gpg
+  - echo "deb [signed-by=/etc/apt/keyrings/syncthing.gpg] https://apt.syncthing.net/ syncthing stable" > /etc/apt/sources.list.d/syncthing.list
+  - apt-get update
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y syncthing
+
+  # Enable Syncthing as a user service for molt (survives reboots)
+  - loginctl enable-linger molt
+  - su - molt -c "systemctl --user enable syncthing.service"
+  - su - molt -c "systemctl --user start syncthing.service"
+
+  # Create Obsidian vault structure in workspace
+  - mkdir -p /home/molt/.openclaw/workspace/.obsidian/plugins
+  - mkdir -p /home/molt/.openclaw/workspace/00-inbox
+  - mkdir -p /home/molt/.openclaw/workspace/research
+  - mkdir -p /home/molt/.openclaw/workspace/templates
+
+  # .stignore — hide agent internals from Syncthing (Philip doesn't need these)
+  - |
+    cat > /home/molt/.openclaw/workspace/.stignore << 'STIGNORE'
+    // Syncthing ignore patterns — agent internals Philip doesn't need to see
+    .git
+    .gitignore
+    node_modules
+    __pycache__
+    *.pyc
+    .clawhub
+    .openclaw
+    *.log
+    scripts/
+    STIGNORE
+
+  # Obsidian community-plugins.json (plugins Philip should install)
+  - |
+    cat > /home/molt/.openclaw/workspace/.obsidian/community-plugins.json << 'OBSIDIAN'
+    [
+      "obsidian-kanban",
+      "dataview",
+      "templater-obsidian",
+      "calendar",
+      "obsidian-git"
+    ]
+    OBSIDIAN
+
+  # Obsidian app.json (sane defaults)
+  - |
+    cat > /home/molt/.openclaw/workspace/.obsidian/app.json << 'OBSIDIAN'
+    {
+      "newFileLocation": "folder",
+      "newFileFolderPath": "00-inbox",
+      "attachmentFolderPath": "artifacts",
+      "alwaysUpdateLinks": true,
+      "showLineNumber": true,
+      "strictLineBreaks": false
+    }
+    OBSIDIAN
+
+  # Daily note template
+  - |
+    cat > /home/molt/.openclaw/workspace/templates/daily-note.md << 'TEMPLATE'
+    # {{date:YYYY-MM-DD}} — {{date:dddd}}
+
+    ## Summary
+
+    ## Key Decisions
+
+    ## Tasks
+    - [ ]
+
+    ## Notes
+
+    TEMPLATE
+
+  # Research template
+  - |
+    cat > /home/molt/.openclaw/workspace/templates/research.md << 'TEMPLATE'
+    # Research: {{title}}
+
+    **Date:** {{date:YYYY-MM-DD}}
+    **Status:** draft | in-progress | complete
+
+    ## Objective
+
+    ## Sources
+
+    ## Findings
+
+    ## Conclusions
+
+    TEMPLATE
+
+  # Project template
+  - |
+    cat > /home/molt/.openclaw/workspace/templates/project.md << 'TEMPLATE'
+    # Project: {{title}}
+
+    **Created:** {{date:YYYY-MM-DD}}
+    **Status:** ideation | spec | design | implementation | qa | deployed
+
+    ## Overview
+
+    ## Requirements
+
+    ## Architecture
+
+    ## Progress
+
+    ## Links
+
+    TEMPLATE
+
+  # Obsidian daily-notes config (folder: memory/, format: YYYY-MM-DD)
+  - |
+    cat > /home/molt/.openclaw/workspace/.obsidian/daily-notes.json << 'OBSIDIAN'
+    {
+      "folder": "memory",
+      "format": "YYYY-MM-DD",
+      "template": "templates/daily-note"
+    }
+    OBSIDIAN
+
+  # Obsidian core plugins (enable daily-notes + templates)
+  - |
+    cat > /home/molt/.openclaw/workspace/.obsidian/core-plugins.json << 'OBSIDIAN'
+    ["daily-notes","templates","file-explorer","search","graph","tag-pane","command-palette","outline"]
+    OBSIDIAN
+
+  # Obsidian templates plugin config (folder: templates/)
+  - |
+    cat > /home/molt/.openclaw/workspace/.obsidian/templates.json << 'OBSIDIAN'
+    {
+      "folder": "templates"
+    }
+    OBSIDIAN
+
+  # Fix ownership (cloud-init runs as root)
+  - chown -R molt:molt /home/molt/.openclaw
 
   # Signal completion
   - touch /home/molt/.openclaw-ready

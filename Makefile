@@ -37,6 +37,17 @@ update:               ## Update OpenClaw to latest version and restart
 tunnel:               ## Open SSH tunnel for remote gateway access (port 18789)
 	@ssh -i $(SSH_KEY) -L 18789:127.0.0.1:18789 molt@$(IP)
 
+## Syncthing ─────────────────────────────────
+
+syncthing-tunnel:     ## Open SSH tunnel for Syncthing web UI (port 8384)
+	@ssh -i $(SSH_KEY) -L 8384:127.0.0.1:8384 molt@$(IP)
+
+syncthing-setup:      ## Run Syncthing setup helper on the server
+	@ssh -i $(SSH_KEY) molt@$(IP) "bash ~/scripts/syncthing-setup.sh 2>/dev/null || bash /tmp/syncthing-setup.sh"
+
+syncthing-id:         ## Print the server's Syncthing device ID
+	@ssh -i $(SSH_KEY) molt@$(IP) "syncthing -device-id"
+
 ## Credential management ───────────────────────
 
 add-bot:              ## Add a new bot (usage: make add-bot NAME=mybot)

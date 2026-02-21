@@ -458,6 +458,13 @@ if ${USE_CREDENTIALS}; then
   printf '  %bBackup cron:%b Daily at 03:00 UTC\n\n' "${BOLD}" "${NC}"
 fi
 
+printf '  %bSyncthing:%b Running as user service (port 22000/TCP, 21027/UDP)\n' "${BOLD}" "${NC}"
+SYNCTHING_ID=$(${SSH_CMD} "syncthing -device-id 2>/dev/null" 2>/dev/null || echo "")
+if [[ -n "${SYNCTHING_ID}" ]]; then
+  printf '  %bDevice ID:%b  %s\n' "${BOLD}" "${NC}" "${SYNCTHING_ID}"
+fi
+printf '  %bWeb UI:%b     ssh -L 8384:127.0.0.1:8384 (then http://127.0.0.1:8384)\n\n' "${BOLD}" "${NC}"
+
 printf '  %bNext step:%b SSH in and run the OpenClaw onboarding wizard:\n\n' "${YELLOW}" "${NC}"
 printf '    make ssh\n'
 printf '    openclaw onboard --install-daemon\n\n'
