@@ -193,6 +193,30 @@ runcmd:
 
     TEMPLATE
 
+  # Obsidian daily-notes config (folder: memory/, format: YYYY-MM-DD)
+  - |
+    cat > /home/molt/.openclaw/workspace/.obsidian/daily-notes.json << 'OBSIDIAN'
+    {
+      "folder": "memory",
+      "format": "YYYY-MM-DD",
+      "template": "templates/daily-note"
+    }
+    OBSIDIAN
+
+  # Obsidian core plugins (enable daily-notes + templates)
+  - |
+    cat > /home/molt/.openclaw/workspace/.obsidian/core-plugins.json << 'OBSIDIAN'
+    ["daily-notes","templates","file-explorer","search","graph","tag-pane","command-palette","outline"]
+    OBSIDIAN
+
+  # Obsidian templates plugin config (folder: templates/)
+  - |
+    cat > /home/molt/.openclaw/workspace/.obsidian/templates.json << 'OBSIDIAN'
+    {
+      "folder": "templates"
+    }
+    OBSIDIAN
+
   # Fix ownership (cloud-init runs as root)
   - chown -R molt:molt /home/molt/.openclaw
 
