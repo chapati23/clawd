@@ -376,6 +376,90 @@ make logs   # Tail the OpenClaw daemon logs
 make status # Check if the daemon is running
 ```
 
+## Syncthing / Obsidian Sync
+
+The agent's workspace (`~/.openclaw/workspace`) is synced to your devices via [Syncthing](https://syncthing.net/), enabling real-time bidirectional file sharing. Open the workspace as an [Obsidian](https://obsidian.md/) vault on your Mac/phone for a rich document interface alongside the agent.
+
+### Architecture
+
+```
+┌─────────────┐     Syncthing (22000/TCP)     ┌──────────────┐
+│  Server      │◄────────────────────────────►│  Your Mac     │
+│  ~/.openclaw │     encrypted, P2P           │  ~/Obsidian/  │
+│  /workspace  │                              │  clawd-vault  │
+└─────────────┘     21027/UDP (discovery)     └──────────────┘
+                                                     │
+                                                     ▼
+                                              Obsidian app
+                                              (view, edit, search)
+```
+
+- **Syncthing** handles peer-to-peer sync — no cloud intermediary, data stays encrypted in transit
+- **`.stignore`** filters out agent internals (`.git`, `scripts/`, logs) so you only see content
+- **Obsidian** provides rich markdown editing, templates, Kanban boards, and search
+- **Conflict resolution**: Syncthing renames conflicting files (`.sync-conflict-*`) rather than overwriting
+
+### Fresh server setup
+
+Syncthing is provisioned automatically by cloud-init. After `./setup.sh` completes:
+
+1. Note the **Device ID** printed at the end of setup
+2. Access the Syncthing web UI via SSH tunnel:
+   ```bash
+   ssh -i terraform/id_ed25519 -L 8384:127.0.0.1:8384 molt@<server-ip>
+   # Open http://127.0.0.1:8384
+   ```
+3. Add a shared folder pointing to `~/.openclaw/workspace` with folder ID `openclaw-workspace`
+4. On your Mac, install [Syncthing](https://syncthing.net/downloads/) and add the server as a remote device
+5. Accept the shared folder and point it to your local Obsidian vault directory
+
+Or run the setup helper on the server:
+
+```bash
+./scripts/syncthing-setup.sh
+```
+
+### Existing servers
+
+For servers provisioned before this change, see [MIGRATION.md](MIGRATION.md) for manual installation steps.
+
+### Obsidian plugins
+
+The vault ships with a `community-plugins.json` suggesting these plugins:
+
+| Plugin    | Purpose                                       |
+| --------- | --------------------------------------------- |
+| Kanban    | Visual task boards from markdown              |
+| Dataview  | Query and filter notes like a database        |
+| Templater | Rich templates for daily notes, research, etc |
+| Calendar  | Navigate daily notes by date                  |
+| Git       | Version control from within Obsidian          |
+
+Install them from Obsidian's Community Plugins settings.
+
+### Vault structure
+
+```
+~/.openclaw/workspace/         # Syncthing root / Obsidian vault
+├── .obsidian/                 # Obsidian config (synced)
+├── .stignore                  # Syncthing ignore rules
+├── 00-inbox/                  # Quick capture, unsorted notes
+├── research/                  # Research documents
+├── templates/                 # Obsidian templates (daily note, research, project)
+├── artifacts/                 # Agent output (reports, analysis)
+├── memory/                    # Agent memory (daily notes, context)
+├── MEMORY.md                  # Agent long-term memory
+├── AGENTS.md                  # Agent identity and rules
+└── ...                        # Other workspace files
+```
+
+### Security notes
+
+- Syncthing traffic is **TLS-encrypted** between peers
+- The web UI listens on **127.0.0.1:8384** only — not exposed to the internet
+- Access the web UI exclusively via SSH tunnel
+- Firewall allows 22000/TCP and 21027/UDP for Syncthing's data and discovery protocols
+
 ## Teardown
 
 ```bash
@@ -391,18 +475,21 @@ Pass `--yes` to skip the confirmation prompt: `./destroy.sh --yes`.
 Makefile               # Shortcuts: make ssh, make logs, make destroy, etc.
 setup.sh               # One-command setup: provision + verify + deploy credentials
 destroy.sh             # One-command teardown: unprotect + destroy
+MIGRATION.md           # Manual Syncthing setup for existing servers
 scripts/
 ├── lib.sh             # Shared helpers: colors, logging, prompts, GPG/pass utilities
 ├── credentials-init.sh       # One-time: bootstrap pass + GPG + age + GitHub repo
 ├── add-bot.sh                # Per-bot: create GPG key, scope credentials, deploy key
 ├── credentials-server-setup.sh  # Server-side: import keys, clone credential store
 ├── credentials-backup.sh     # Cron: daily backup + push + prune
-└── credentials-rotate.sh     # Day-2: GPG key rotation
+├── credentials-rotate.sh     # Day-2: GPG key rotation
+├── gcp-setup.sh              # GCP read-only SA bootstrap for agents
+└── syncthing-setup.sh        # Post-provisioning: configure Syncthing + print pairing info
 terraform/
-├── main.tf            # Providers, SSH key generation, Hetzner resources, outputs
+├── main.tf            # Providers, SSH key generation, firewall (SSH + Syncthing), outputs
 ├── variables.tf       # Input variable definitions with defaults
 ├── terraform.tfvars   # Your secrets and overrides (gitignored, auto-generated by setup.sh)
-├── user-data.yml      # Cloud-init: user, packages, Node.js, OpenClaw, hardening
+├── user-data.yml      # Cloud-init: user, packages, Node.js, OpenClaw, Syncthing, hardening
 └── .gitignore         # Excludes secrets, state, and generated SSH keys
 ```
 

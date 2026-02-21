@@ -54,18 +54,34 @@ resource "hcloud_ssh_key" "me" {
 }
 
 # ──────────────────────────────────────────────
-# Firewall — SSH only (gateway uses SSH tunnel)
+# Firewall — SSH + Syncthing
 # ──────────────────────────────────────────────
 
 resource "hcloud_firewall" "openclaw_fw" {
   # checkov:skip=CKV2_HCLOUD_4:delete_protection is not supported on hcloud_firewall resources
-  # checkov:skip=CKV2_HCLOUD_5:SSH must be reachable from any IP (no static IP/VPN available)
+  # checkov:skip=CKV2_HCLOUD_5:SSH and Syncthing must be reachable from any IP (no static IP/VPN available)
   name = "openclaw-fw"
 
   rule {
     direction  = "in"
     protocol   = "tcp"
     port       = "22"
+    source_ips = ["0.0.0.0/0", "::/0"]
+  }
+
+  # Syncthing data transfer
+  rule {
+    direction  = "in"
+    protocol   = "tcp"
+    port       = "22000"
+    source_ips = ["0.0.0.0/0", "::/0"]
+  }
+
+  # Syncthing local/global discovery
+  rule {
+    direction  = "in"
+    protocol   = "udp"
+    port       = "21027"
     source_ips = ["0.0.0.0/0", "::/0"]
   }
 

@@ -76,6 +76,122 @@ runcmd:
   # Install OpenClaw globally
   - npm install -g openclaw@${OPENCLAW_VERSION}
 
+  # ──────────────────────────────────────────────
+  # Syncthing (official apt repo — not Ubuntu's stale version)
+  # ──────────────────────────────────────────────
+  - curl -fsSL https://syncthing.net/release-key.gpg | gpg --dearmor -o /etc/apt/keyrings/syncthing.gpg
+  - echo "deb [signed-by=/etc/apt/keyrings/syncthing.gpg] https://apt.syncthing.net/ syncthing stable" > /etc/apt/sources.list.d/syncthing.list
+  - apt-get update
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y syncthing
+
+  # Enable Syncthing as a user service for molt (survives reboots)
+  - loginctl enable-linger molt
+  - su - molt -c "systemctl --user enable syncthing.service"
+  - su - molt -c "systemctl --user start syncthing.service"
+
+  # Create Obsidian vault structure in workspace
+  - mkdir -p /home/molt/.openclaw/workspace/.obsidian/plugins
+  - mkdir -p /home/molt/.openclaw/workspace/00-inbox
+  - mkdir -p /home/molt/.openclaw/workspace/research
+  - mkdir -p /home/molt/.openclaw/workspace/templates
+
+  # .stignore — hide agent internals from Syncthing (Philip doesn't need these)
+  - |
+    cat > /home/molt/.openclaw/workspace/.stignore << 'STIGNORE'
+    // Syncthing ignore patterns — agent internals Philip doesn't need to see
+    .git
+    .gitignore
+    node_modules
+    __pycache__
+    *.pyc
+    .clawhub
+    .openclaw
+    *.log
+    scripts/
+    STIGNORE
+
+  # Obsidian community-plugins.json (plugins Philip should install)
+  - |
+    cat > /home/molt/.openclaw/workspace/.obsidian/community-plugins.json << 'OBSIDIAN'
+    [
+      "obsidian-kanban",
+      "dataview",
+      "templater-obsidian",
+      "calendar",
+      "obsidian-git"
+    ]
+    OBSIDIAN
+
+  # Obsidian app.json (sane defaults)
+  - |
+    cat > /home/molt/.openclaw/workspace/.obsidian/app.json << 'OBSIDIAN'
+    {
+      "newFileLocation": "folder",
+      "newFileFolderPath": "00-inbox",
+      "attachmentFolderPath": "artifacts",
+      "alwaysUpdateLinks": true,
+      "showLineNumber": true,
+      "strictLineBreaks": false
+    }
+    OBSIDIAN
+
+  # Daily note template
+  - |
+    cat > /home/molt/.openclaw/workspace/templates/daily-note.md << 'TEMPLATE'
+    # {{date:YYYY-MM-DD}} — {{date:dddd}}
+
+    ## Summary
+
+    ## Key Decisions
+
+    ## Tasks
+    - [ ]
+
+    ## Notes
+
+    TEMPLATE
+
+  # Research template
+  - |
+    cat > /home/molt/.openclaw/workspace/templates/research.md << 'TEMPLATE'
+    # Research: {{title}}
+
+    **Date:** {{date:YYYY-MM-DD}}
+    **Status:** draft | in-progress | complete
+
+    ## Objective
+
+    ## Sources
+
+    ## Findings
+
+    ## Conclusions
+
+    TEMPLATE
+
+  # Project template
+  - |
+    cat > /home/molt/.openclaw/workspace/templates/project.md << 'TEMPLATE'
+    # Project: {{title}}
+
+    **Created:** {{date:YYYY-MM-DD}}
+    **Status:** ideation | spec | design | implementation | qa | deployed
+
+    ## Overview
+
+    ## Requirements
+
+    ## Architecture
+
+    ## Progress
+
+    ## Links
+
+    TEMPLATE
+
+  # Fix ownership (cloud-init runs as root)
+  - chown -R molt:molt /home/molt/.openclaw
+
   # Signal completion
   - touch /home/molt/.openclaw-ready
   - chown molt:molt /home/molt/.openclaw-ready
