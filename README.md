@@ -419,6 +419,28 @@ Or run the setup helper on the server:
 ./scripts/syncthing-setup.sh
 ```
 
+### iOS setup (SyncTrain)
+
+To sync the vault to an iPhone using [SyncTrain](https://apps.apple.com/app/synctrain/id6478187693) (free, open-source Syncthing client):
+
+> ⚠️ **iOS sync has several gotchas.** Read all steps carefully — skipping any one will result in a non-working sync.
+
+1. Install **SyncTrain** from the App Store
+2. **Bidirectional pairing** — add devices on BOTH sides:
+   - On your Mac's Syncthing web UI: **Add Remote Device** → paste the iPhone's device ID (from SyncTrain → Settings)
+   - On your iPhone in SyncTrain: **Add Device** → paste your Mac's device ID (from Mac Syncthing UI → Actions → Show ID)
+   - ⚠️ Both sides must add each other. Adding the iPhone on your Mac is NOT enough.
+3. On your Mac's Syncthing: edit the shared folder → **Sharing** tab → check the iPhone device
+4. **Accept the folder on iPhone** — it does NOT auto-accept:
+   - In SyncTrain → **Folders** tab → tap the folder under **"Discovered folders"** to add it
+   - ⚠️ **Change sync mode to "All files"** — the default "Selected files" means nothing syncs
+5. **Keep SyncTrain in foreground** for the initial sync (iOS suspends background network — you'll see 0 B/s otherwise)
+6. After initial sync completes ("Up to Date"), open the synced folder as an Obsidian vault
+
+> 💡 After initial sync, background sync works for small changes but iOS may delay it. Open SyncTrain briefly to force a sync.
+
+For detailed step-by-step instructions, see [PHILIP-SETUP.md](https://github.com/chapati23/clawd/blob/main/docs/PHILIP-SETUP.md) (or the `projects/notion-to-obsidian/PHILIP-SETUP.md` in the workspace).
+
 ### Existing servers
 
 For servers provisioned before this change, see [MIGRATION.md](MIGRATION.md) for manual installation steps.

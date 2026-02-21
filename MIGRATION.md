@@ -181,10 +181,27 @@ ssh -i terraform/id_ed25519 -L 8384:127.0.0.1:8384 molt@<server-ip>
 
 ## Step 7: Pair with Your Devices
 
-1. Install Syncthing on your Mac/phone
+### Mac
+
+1. Install Syncthing on your Mac (`brew install syncthing`)
 2. Add the server as a remote device using its Device ID
 3. Share the workspace folder (path: `~/.openclaw/workspace`, folder ID: `openclaw-workspace`)
 4. Accept the share on your device and point it to your local Obsidian vault directory
+
+### iPhone (SyncTrain)
+
+> ⚠️ iOS setup has several gotchas — read carefully.
+
+1. Install **SyncTrain** from the App Store
+2. **Bidirectional pairing required:** Add devices on BOTH sides:
+   - Mac Syncthing: Add Remote Device → paste iPhone's device ID
+   - SyncTrain on iPhone: Add Device → paste Mac's device ID
+   - ⚠️ Both must add each other or they won't connect
+3. On Mac Syncthing: edit the shared folder → Sharing tab → check the iPhone
+4. On iPhone in SyncTrain: go to **Folders** tab → tap the folder under **"Discovered folders"** to add it (it won't auto-accept)
+5. ⚠️ **Change sync mode to "All files"** — default "Selected files" syncs nothing
+6. ⚠️ **Keep SyncTrain in foreground** for initial sync — iOS suspends background network (0 B/s otherwise)
+7. After sync completes, open the synced folder as an Obsidian vault
 
 ## Verification
 
