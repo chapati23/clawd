@@ -385,13 +385,19 @@ The agent's workspace (`~/.openclaw/workspace`) is synced to your devices via [S
 ```
 ┌─────────────┐     Syncthing (22000/TCP)     ┌──────────────┐
 │  Server      │◄────────────────────────────►│  Your Mac     │
-│  ~/.openclaw │     encrypted, P2P           │  ~/Obsidian/  │
-│  /workspace  │                              │  clawd-vault  │
+│  ~/.openclaw │     encrypted, P2P           │  ~/vault/     │
+│  /workspace  │                              │               │
 └─────────────┘     21027/UDP (discovery)     └──────────────┘
-                                                     │
-                                                     ▼
-                                              Obsidian app
-                                              (view, edit, search)
+       │                                             │
+       │            Syncthing (22000/TCP)            ▼
+       │◄────────────────────────────►       Obsidian app
+       │            encrypted, P2P           (view, edit, search)
+       ▼
+┌─────────────┐
+│  iPhone      │
+│  SyncTrain   │
+│  (Giskard)   │
+└─────────────┘
 ```
 
 - **Syncthing** handles peer-to-peer sync — no cloud intermediary, data stays encrypted in transit
@@ -409,7 +415,7 @@ Syncthing is provisioned automatically by cloud-init. After `./setup.sh` complet
    ssh -i terraform/id_ed25519 -L 8384:127.0.0.1:8384 molt@<server-ip>
    # Open http://127.0.0.1:8384
    ```
-3. Add a shared folder pointing to `~/.openclaw/workspace` with folder ID `openclaw-workspace`
+3. Add a shared folder pointing to `~/.openclaw/workspace` with folder ID `openclaw-vault`
 4. On your Mac, install [Syncthing](https://syncthing.net/downloads/) and add the server as a remote device
 5. Accept the shared folder and point it to your local Obsidian vault directory
 
@@ -425,17 +431,22 @@ To sync the vault to an iPhone using [SyncTrain](https://apps.apple.com/app/sync
 
 > ⚠️ **iOS sync has several gotchas.** Read all steps carefully — skipping any one will result in a non-working sync.
 
+> ⚠️ **Pair iPhone ↔ server directly. Do NOT relay through your Mac.** If you pair iPhone ↔ Mac instead, sync breaks every time your Mac sleeps.
+
 1. Install **SyncTrain** from the App Store
-2. **Bidirectional pairing** — add devices on BOTH sides:
-   - On your Mac's Syncthing web UI: **Add Remote Device** → paste the iPhone's device ID (from SyncTrain → Settings)
-   - On your iPhone in SyncTrain: **Add Device** → paste your Mac's device ID (from Mac Syncthing UI → Actions → Show ID)
-   - ⚠️ Both sides must add each other. Adding the iPhone on your Mac is NOT enough.
-3. On your Mac's Syncthing: edit the shared folder → **Sharing** tab → check the iPhone device
-4. **Accept the folder on iPhone** — it does NOT auto-accept:
-   - In SyncTrain → **Folders** tab → tap the folder under **"Discovered folders"** to add it
-   - ⚠️ **Change sync mode to "All files"** — the default "Selected files" means nothing syncs
-5. **Keep SyncTrain in foreground** for the initial sync (iOS suspends background network — you'll see 0 B/s otherwise)
-6. After initial sync completes ("Up to Date"), open the synced folder as an Obsidian vault
+2. **Copy your iPhone's device ID** — it is shown on the SyncTrain Start screen; tap it to copy
+3. **On the server**: add the iPhone as a remote device in the Syncthing web UI (accessible via SSH tunnel — see [Fresh server setup](#fresh-server-setup)), or run `./scripts/syncthing-setup.sh` which prints pairing instructions
+4. **In SyncTrain → Devices tab → Add device** → paste the **server's** device ID → set the address to `tcp://<server-ip>:22000`
+   - ⚠️ Both sides must add each other. Adding the iPhone on the server is NOT enough.
+5. Once both sides accept each other, SyncTrain will show a **"Discovered folder"** offer for `openclaw-vault`
+6. **Accept the folder offer**:
+   - Tap it under **Discovered folders**
+   - Choose **"Existing folder"** if you already have the files locally, or **"Regular folder"** if starting fresh
+   - ⚠️ **Change "Synchronize" to "All files"** — the SyncTrain default "Selected files" will break Obsidian (it won't see hidden directories like `.obsidian/`)
+7. **Keep SyncTrain in foreground** for the initial sync (iOS suspends background network — you'll see 0 B/s otherwise)
+8. After initial sync completes ("Up to Date"), open the synced folder as an Obsidian vault (vault name: **Giskard**)
+
+> 💡 **If the folder shows 0/0 devices after accepting:** unlink and re-add the folder entirely (don't just edit sharing). Re-adding triggers a fresh offer from the server.
 
 > 💡 After initial sync, background sync works for small changes but iOS may delay it. Open SyncTrain briefly to force a sync.
 
