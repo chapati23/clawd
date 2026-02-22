@@ -95,7 +95,7 @@ cat <<EOF
   │                                                         │
   │  3. Share the workspace folder:                         │
   │     Path: ${WORKSPACE}
-  │     Folder ID: openclaw-workspace                       │
+  │     Folder ID: openclaw-vault                       │
   │                                                         │
   │  4. Accept the share on your device and point it        │
   │     to your local Obsidian vault directory.             │
