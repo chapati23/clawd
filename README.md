@@ -18,6 +18,11 @@ For encrypted credential management (recommended):
 - [Homebrew](https://brew.sh) (macOS)
 - [GitHub CLI](https://cli.github.com/) (`gh`) — authenticated with `gh auth login`
 
+For remote dashboard access (optional):
+
+- A [Tailscale](https://tailscale.com/) account with [HTTPS certificates](https://tailscale.com/kb/1153/enabling-https) and [Serve](https://tailscale.com/kb/1312/serve) enabled
+- Tailscale installed on your Mac (`brew install tailscale`) — see [Tailscaled on macOS](https://github.com/tailscale/tailscale/wiki/Tailscaled-on-macOS)
+
 ## Quick Start
 
 ```bash
@@ -85,11 +90,11 @@ Each bot only accesses its own credentials plus shared ones. Compromising one bo
 
 ### Store path conventions
 
-| Path                             | Encrypted to                     | Use for                                                |
-| -------------------------------- | -------------------------------- | ------------------------------------------------------ |
-| `shared/<service>/<key>`         | Master key + all bot keys        | API keys shared across bots (Anthropic, OpenAI, etc.)  |
-| `bot-<name>/<service>/<key>`     | Master key + that bot's key only | Bot-specific credentials (Telegram token, Notion key)  |
-| `infrastructure/<service>/<key>` | Master key only                  | Infra secrets bots should never access (Hetzner token) |
+| Path                             | Encrypted to                     | Use for                                                        |
+| -------------------------------- | -------------------------------- | -------------------------------------------------------------- |
+| `shared/<service>/<key>`         | Master key + all bot keys        | API keys shared across bots (Anthropic, OpenAI, Minimax, etc.) |
+| `bot-<name>/<service>/<key>`     | Master key + that bot's key only | Bot-specific credentials (Telegram token, Notion key)          |
+| `infrastructure/<service>/<key>` | Master key only                  | Infra secrets bots should never access (Hetzner token)         |
 
 ### Initial token migration
 
@@ -105,6 +110,7 @@ pass insert shared/telegram/bot-token
 pass insert shared/gemini/api-key
 pass insert shared/notion/api-key
 pass insert shared/perplexity/api-key
+pass insert shared/minimax/api-key
 
 # Push to GitHub + sync to server
 cd ~/.password-store && git push
@@ -175,6 +181,7 @@ When rotating an API key for a specific service:
 | **Notion**     | Regenerate at [notion.so/my-integrations](https://www.notion.so/my-integrations) -> `pass insert -f shared/notion/api-key` -> re-share pages if new integration |
 | **Gemini**     | New key at [AI Studio](https://aistudio.google.com/) -> `pass insert -f shared/gemini/api-key` -> delete old key                                                |
 | **Perplexity** | New key at [perplexity.ai](https://www.perplexity.ai/) -> `pass insert -f shared/perplexity/api-key` -> delete old key                                          |
+| **Minimax**    | New key at [platform.minimax.io](https://platform.minimax.io/) -> `pass insert -f shared/minimax/api-key` -> delete old key                                     |
 
 After rotating, always push and sync:
 
@@ -493,6 +500,49 @@ Install them from Obsidian's Community Plugins settings.
 - Access the web UI exclusively via SSH tunnel
 - Firewall allows 22000/TCP and 21027/UDP for Syncthing's data and discovery protocols
 
+## Tailscale & Dashboard Access
+
+Tailscale provides private mesh networking for accessing the OpenClaw dashboard from your Mac without SSH tunnels.
+
+### Server side (automated)
+
+Tailscale is installed and configured automatically by cloud-init. Store a reusable auth key in `pass` before running `setup.sh`:
+
+```bash
+pass insert infrastructure/tailscale/auth-key
+```
+
+Generate the key at <https://login.tailscale.com/admin/settings/keys> (reusable, 90-day expiry).
+
+### Dashboard setup (one-time, after `openclaw onboard`)
+
+```bash
+make dashboard-setup          # Configure gateway for Tailscale HTTPS access
+# Open the URL printed by the command above in your browser
+make dashboard-pair           # Approve the browser pairing request
+# Reload the browser — dashboard should connect
+```
+
+### Mac DNS (CLI tailscale only)
+
+The `brew install tailscale` CLI doesn't configure macOS DNS for `.ts.net` domains ([known limitation](https://github.com/tailscale/tailscale/wiki/Tailscaled-on-macOS)). Add a static hosts entry:
+
+```bash
+make tailscale-ip             # Get the server's Tailscale IP
+echo "<IP> <hostname>.tail<xxx>.ts.net" | sudo tee -a /etc/hosts
+```
+
+The standalone GUI app from [tailscale.com/download](https://tailscale.com/download) handles DNS automatically if you prefer.
+
+### Day-to-day
+
+```bash
+make dashboard                # Open dashboard in browser
+make tailscale-status         # Check Tailscale connection
+```
+
+For full details on gateway configuration, pairing, and troubleshooting, see [`AGENTS.md`](AGENTS.md#accessing-the-openclaw-dashboard).
+
 ## Teardown
 
 ```bash
@@ -522,7 +572,7 @@ terraform/
 ├── main.tf            # Providers, SSH key generation, firewall (SSH + Syncthing), outputs
 ├── variables.tf       # Input variable definitions with defaults
 ├── terraform.tfvars   # Your secrets and overrides (gitignored, auto-generated by setup.sh)
-├── user-data.yml      # Cloud-init: user, packages, Node.js, OpenClaw, Syncthing, hardening
+├── user-data.yml      # Cloud-init: user, packages, Node.js, OpenClaw, Syncthing, Tailscale, hardening
 └── .gitignore         # Excludes secrets, state, and generated SSH keys
 ```
 
@@ -531,17 +581,22 @@ terraform/
 Run `make` or `make help` to see all available commands:
 
 ```
-  setup           Provision server and verify
-  destroy         Tear down all infrastructure
-  ssh             SSH into the server
-  logs            Tail OpenClaw gateway logs
-  status          Show OpenClaw service status
-  restart         Restart the OpenClaw gateway
-  update          Update OpenClaw to latest version and restart
-  tunnel          Open SSH tunnel for remote gateway access (port 18789)
-  add-bot         Add a new bot (usage: make add-bot NAME=mybot)
-  rotate-key      Rotate a GPG key (usage: make rotate-key TARGET=master)
-  cred-status     Show credential store status on server
+  setup             Provision server and verify
+  destroy           Tear down all infrastructure
+  ssh               SSH into the server
+  logs              Tail OpenClaw gateway logs
+  status            Show OpenClaw service status
+  restart           Restart the OpenClaw gateway
+  update            Update OpenClaw to latest version and restart
+  tunnel            Open SSH tunnel for remote gateway access (port 18789)
+  dashboard         Open OpenClaw dashboard in browser (via Tailscale)
+  dashboard-setup   Configure gateway for Tailscale dashboard access (run once)
+  dashboard-pair    Approve pending Control UI device pairing request
+  tailscale-ip      Print the server's Tailscale IP
+  tailscale-status  Show Tailscale connection status
+  add-bot           Add a new bot (usage: make add-bot NAME=mybot)
+  rotate-key        Rotate a GPG key (usage: make rotate-key TARGET=master)
+  cred-status       Show credential store status on server
 ```
 
 ## API Tokens
@@ -558,6 +613,7 @@ Without credential management, secrets live directly in `terraform.tfvars` (giti
 | `gemini_api_key`     | No       | [Google AI Studio](https://aistudio.google.com/) > API keys                                                     |
 | `notion_api_key`     | No       | [Notion Integrations](https://www.notion.so/profile/integrations) (see [Connecting Notion](#connecting-notion)) |
 | `perplexity_api_key` | No       | [Perplexity](https://www.perplexity.ai/) > API keys                                                             |
+| `tailscale_auth_key` | No       | [Tailscale Admin](https://login.tailscale.com/admin/settings/keys) > Auth keys (reusable, 90-day expiry)        |
 
 All can also be set via environment variables (prefix with `TF_VAR_`, e.g. `TF_VAR_hcloud_token`).
 
@@ -582,7 +638,8 @@ For reference, here's what the setup script automates:
 The following hardening is applied automatically via cloud-init:
 
 - **SSH**: Root login disabled, password authentication disabled (key-only)
-- **Firewall**: Only port 22 (SSH) is open; the OpenClaw gateway is only accessible via SSH tunnel
+- **Firewall**: Only port 22 (SSH), 22000/TCP and 21027/UDP (Syncthing) are open; the OpenClaw gateway binds to loopback only
+- **Tailscale**: Dashboard access via Tailscale Serve (HTTPS, tailnet-only) — no ports exposed to the public internet
 - **fail2ban**: Monitors and bans IPs with repeated failed SSH login attempts
 - **unattended-upgrades**: Automatically installs security patches
 - **Swap**: 1 GB swap file as OOM safety net

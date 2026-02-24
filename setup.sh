@@ -20,6 +20,8 @@ TOKEN_MAP=(
   "shared/gemini/api-key:gemini_api_key"
   "shared/notion/api-key:notion_api_key"
   "shared/perplexity/api-key:perplexity_api_key"
+  "shared/minimax/api-key:minimax_api_key"
+  "infrastructure/tailscale/auth-key:tailscale_auth_key"
 )
 
 # ==============================================================
@@ -213,6 +215,10 @@ anthropic_api_key  = "${TF_VAR_anthropic_api_key:-}"
 gemini_api_key     = "${TF_VAR_gemini_api_key:-}"
 notion_api_key     = "${TF_VAR_notion_api_key:-}"
 perplexity_api_key = "${TF_VAR_perplexity_api_key:-}"
+minimax_api_key    = "${TF_VAR_minimax_api_key:-}"
+
+# Tailscale auth key for auto-joining the tailnet on boot
+tailscale_auth_key = "${TF_VAR_tailscale_auth_key:-}"
 EOF
   ok "Created ${TFVARS}"
 fi
@@ -424,6 +430,20 @@ if ${USE_CREDENTIALS}; then
   fi
 fi
 
+# Verify Tailscale
+TAILSCALE_IP=""
+TAILSCALE_FQDN=""
+tailscale_status=$(${SSH_CMD} "tailscale status --json 2>/dev/null | python3 -c \"import sys,json; print(json.load(sys.stdin).get('BackendState',''))\"" 2>/dev/null || echo "")
+if [[ "${tailscale_status}" == "Running" ]]; then
+  TAILSCALE_IP=$(${SSH_CMD} "tailscale ip -4" 2>/dev/null || echo "")
+  TAILSCALE_FQDN=$(${SSH_CMD} "tailscale status --json 2>/dev/null | python3 -c \"import sys,json; print(json.load(sys.stdin)['Self']['DNSName'].rstrip('.'))\"" 2>/dev/null || echo "")
+  ok "Tailscale running (${TAILSCALE_IP}, ${TAILSCALE_FQDN})"
+elif [[ -n "${TF_VAR_tailscale_auth_key:-}" ]]; then
+  warn "Tailscale auth key provided but not running"
+else
+  info "Tailscale not configured (no auth key)"
+fi
+
 if [[ ${failed} -ne 0 ]]; then
   error "Some checks failed. Review output above."
   exit 1
@@ -456,6 +476,13 @@ printf '  Shortcut:   %bmake ssh%b\n\n' "${BOLD}" "${NC}"
 if ${USE_CREDENTIALS}; then
   printf '  %bCredentials:%b Deployed via pass (encrypted)\n' "${BOLD}" "${NC}"
   printf '  %bBackup cron:%b Daily at 03:00 UTC\n\n' "${BOLD}" "${NC}"
+fi
+
+if [[ -n "${TAILSCALE_IP}" ]]; then
+  printf '  %bTailscale:%b  %s (connected)\n' "${BOLD}" "${NC}" "${TAILSCALE_IP}"
+  if [[ -n "${TAILSCALE_FQDN}" ]]; then
+    printf '  %bDashboard:%b  https://%s/chat?session=main\n\n' "${BOLD}" "${NC}" "${TAILSCALE_FQDN}"
+  fi
 fi
 
 printf '  %bSyncthing:%b Running as user service (port 22000/TCP, 21027/UDP)\n' "${BOLD}" "${NC}"

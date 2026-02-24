@@ -43,8 +43,9 @@ resource "local_file" "ssh_public_key" {
 
 locals {
   user_data = templatefile("${path.module}/user-data.yml", {
-    SSH_PUBLIC_KEY   = tls_private_key.ssh.public_key_openssh
-    OPENCLAW_VERSION = var.openclaw_version
+    SSH_PUBLIC_KEY     = tls_private_key.ssh.public_key_openssh
+    OPENCLAW_VERSION   = var.openclaw_version
+    TAILSCALE_AUTH_KEY = var.tailscale_auth_key
   })
 }
 

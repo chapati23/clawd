@@ -60,11 +60,25 @@ variable "perplexity_api_key" {
   description = "Perplexity API key. Used to auto-configure OpenClaw on boot."
 }
 
+variable "minimax_api_key" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "Minimax API key (for MiniMax-M2.5). Used to auto-configure OpenClaw on boot."
+}
+
 variable "telegram_bot_token" {
   type        = string
   sensitive   = true
   default     = ""
   description = "Telegram bot token from @BotFather. Used to auto-configure OpenClaw on boot."
+}
+
+variable "tailscale_auth_key" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "Tailscale auth key for auto-joining the tailnet. Generate at https://login.tailscale.com/admin/settings/keys"
 }
 
 variable "openclaw_version" {

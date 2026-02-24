@@ -217,6 +217,20 @@ runcmd:
     }
     OBSIDIAN
 
+  # ──────────────────────────────────────────────
+  # Tailscale (official apt repo)
+  # ──────────────────────────────────────────────
+  - curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg -o /etc/apt/keyrings/tailscale.gpg
+  - echo "deb [signed-by=/etc/apt/keyrings/tailscale.gpg] https://pkgs.tailscale.com/stable/ubuntu noble main" > /etc/apt/sources.list.d/tailscale.list
+  - apt-get update
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y tailscale
+  - systemctl enable tailscaled
+  - |
+    if [ -n "${TAILSCALE_AUTH_KEY}" ]; then
+      tailscale up --authkey="${TAILSCALE_AUTH_KEY}"
+      tailscale serve --bg http://127.0.0.1:18789
+    fi
+
   # Fix ownership (cloud-init runs as root)
   - chown -R molt:molt /home/molt/.openclaw
 
