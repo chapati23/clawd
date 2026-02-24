@@ -21,7 +21,7 @@ For encrypted credential management (recommended):
 For remote dashboard access (optional):
 
 - A [Tailscale](https://tailscale.com/) account with [HTTPS certificates](https://tailscale.com/kb/1153/enabling-https) and [Serve](https://tailscale.com/kb/1312/serve) enabled
-- Tailscale installed on your Mac (`brew install tailscale`) — see [Tailscaled on macOS](https://github.com/tailscale/tailscale/wiki/Tailscaled-on-macOS)
+- Tailscale installed on your Mac (GUI app or CLI — see [Mac setup](#mac-setup) below)
 
 ## Quick Start
 
@@ -503,6 +503,26 @@ Install them from Obsidian's Community Plugins settings.
 ## Tailscale & Dashboard Access
 
 Tailscale provides private mesh networking for accessing the OpenClaw dashboard from your Mac without SSH tunnels.
+
+### Mac setup
+
+Two options — the GUI app handles DNS automatically, the CLI requires a manual `/etc/hosts` entry per server:
+
+| Option                    | Install                                                  | DNS (`.ts.net`)                                                                              |
+| ------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| **GUI app** (recommended) | [tailscale.com/download](https://tailscale.com/download) | Automatic                                                                                    |
+| **CLI-only**              | `brew install tailscale`                                 | Manual ([known limitation](https://github.com/tailscale/tailscale/wiki/Tailscaled-on-macOS)) |
+
+**CLI setup:**
+
+```bash
+brew install tailscale
+sudo tailscaled &          # Start daemon (needs root for TUN device)
+tailscale up               # Authenticate (opens browser)
+tailscale status           # Verify
+```
+
+**GUI setup:** Install, launch, sign in from the menu bar. No terminal needed.
 
 ### Server side (automated)
 

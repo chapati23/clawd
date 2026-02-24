@@ -21,5 +21,8 @@ giskard/
 # direnv
 .envrc
 
+# Playwright MCP (browser automation logs)
+.playwright-mcp/
+
 # OS
 .DS_Store

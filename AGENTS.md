@@ -163,7 +163,36 @@ make tunnel                   # Opens SSH tunnel forwarding port 18789
 # Then browse to http://127.0.0.1:18789
 ```
 
-### Setting up Tailscale
+### Setting up Tailscale on your Mac
+
+Two installation options:
+
+| Option                    | Install                                                  | DNS (`.ts.net`)       | Runs as                 |
+| ------------------------- | -------------------------------------------------------- | --------------------- | ----------------------- |
+| **GUI app** (recommended) | [tailscale.com/download](https://tailscale.com/download) | Automatic (MagicDNS)  | macOS network extension |
+| **CLI-only**              | `brew install tailscale`                                 | Manual (`/etc/hosts`) | `tailscaled` daemon     |
+
+The GUI app handles DNS automatically. The CLI version requires a manual `/etc/hosts` entry per server (see "Mac-side DNS" above).
+
+**CLI setup:**
+
+```bash
+# Install
+brew install tailscale
+
+# Start the daemon (needs root for TUN device)
+sudo tailscaled &
+
+# Authenticate (opens browser for login)
+tailscale up
+
+# Verify
+tailscale status
+```
+
+**GUI setup:** Install from [tailscale.com/download](https://tailscale.com/download), launch the app, and sign in from the menu bar icon. No terminal needed.
+
+### Setting up Tailscale (server-side)
 
 Tailscale is installed automatically during provisioning. To enable auto-join:
 
