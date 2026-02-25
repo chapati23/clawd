@@ -188,24 +188,36 @@ ssh -i terraform/id_ed25519 -L 8384:127.0.0.1:8384 molt@<server-ip>
 3. Share the workspace folder (path: `~/.openclaw/workspace`, folder ID: `openclaw-vault`)
 4. Accept the share on your device and point it to your local Obsidian vault directory
 
-### iPhone (SyncTrain)
+### iPhone / iPad (SyncTrain)
 
-> ⚠️ iOS setup has several gotchas — read carefully.
+> ⚠️ iOS/iPadOS setup has several gotchas — read carefully.
 
-> ⚠️ **Pair iPhone ↔ server directly. Do NOT relay through your Mac.** Sync breaks every time your Mac sleeps.
+> ⚠️ **Pair device ↔ server directly. Do NOT relay through your Mac.** Sync breaks every time your Mac sleeps.
 
-1. Install **SyncTrain** from the App Store
-2. **Copy your iPhone's device ID** — shown on the SyncTrain Start screen; tap it to copy
-3. **On the server:** add the iPhone as a remote device in the Syncthing web UI (SSH tunnel: `ssh -L 8384:127.0.0.1:8384 molt@<server-ip>` → open http://127.0.0.1:8384)
-4. **In SyncTrain → Devices tab → Add device** → paste the **server's** device ID → set address to `tcp://<server-ip>:22000`
+> ⚠️ **iOS/iPadOS Obsidian cannot open arbitrary folders** (sandbox restriction). You must create the vault in Obsidian first, then point SyncTrain to that folder.
+
+**Step 1 — Create the Obsidian vault first:**
+
+1. Install **Obsidian** from the App Store
+2. Open Obsidian → **"Create a vault"** → name it **"Giskard"** → ⚠️ **"Store in iCloud" must be OFF**
+3. Close Obsidian — the empty vault now lives at `On My iPhone/iPad → Obsidian → Giskard`
+
+**Step 2 — Set up SyncTrain and point it to the Obsidian folder:**
+
+4. Install **SyncTrain** from the App Store
+5. **Copy your device ID** — shown on the SyncTrain Start screen; tap it to copy
+6. **On the server:** add the device in the Syncthing web UI (SSH tunnel: `ssh -L 8384:127.0.0.1:8384 molt@<server-ip>` → open http://127.0.0.1:8384)
+7. **In SyncTrain → Devices tab → Add device** → paste the **server's** device ID → set address to `tcp://<server-ip>:22000`
    - ⚠️ Both sides must add each other or they won't connect
-5. Once connected, SyncTrain shows a **"Discovered folder"** offer for `openclaw-vault` — tap it
-6. Choose **"Existing folder"** if you have the files already, or **"Regular folder"** if starting fresh
-7. ⚠️ **Change "Synchronize" to "All files"** — the default "Selected files" will break Obsidian
-8. ⚠️ **Keep SyncTrain in foreground** for initial sync — iOS suspends background network (0 B/s otherwise)
-9. After sync completes, open the synced folder as an Obsidian vault (vault name: **Giskard**)
+8. Once connected, SyncTrain shows a **"Discovered folder"** offer for `openclaw-vault` — tap it
+9. ⚠️ **When asked where to store it, navigate to `On My iPhone/iPad → Obsidian → Giskard`** — do NOT use the default SyncTrain folder (Obsidian can't see it)
+10. ⚠️ **Change "Synchronize" to "All files"** — the default "Selected files" will break Obsidian
+11. ⚠️ **Keep SyncTrain in foreground** for initial sync — iOS suspends background network (0 B/s otherwise)
+12. After sync completes ("Up to Date"), open **Obsidian** — the Giskard vault will have all your files
 
 > 💡 If the folder shows 0/0 devices after accepting, unlink and re-add it entirely — re-adding triggers a fresh offer from the server.
+
+> 💡 If you accidentally synced to SyncTrain's own folder: remove the folder in SyncTrain, have the server re-share (remove + re-add the device from the folder), then re-accept pointing to `Obsidian → Giskard`.
 
 ## Verification
 
