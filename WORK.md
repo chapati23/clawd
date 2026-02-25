@@ -71,7 +71,7 @@ cd ~/.password-store && git status  # should be clean
 
 **Do this in the Hetzner Cloud Console (console.hetzner.cloud), NOT via Terraform:**
 
-1. Go to your project → Servers → moltbot-01
+1. Go to your project → Servers → giskard
 2. Click **Power** → **Power Off** (wait for it to stop)
 3. Click **Rescale** in the left sidebar
 4. Select **CX32** (4 vCPU, 8 GB, 80 GB)
