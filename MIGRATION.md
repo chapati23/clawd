@@ -1,6 +1,6 @@
 # Migration Guide: Add Syncthing to Existing Servers
 
-This guide is for **existing servers** (e.g., Giskard's current `moltbot-01`). New servers get Syncthing automatically via cloud-init — see [README.md](README.md#syncthing--obsidian-sync).
+This guide is for **existing servers** (e.g., Giskard's current `giskard`). New servers get Syncthing automatically via cloud-init — see [README.md](README.md#syncthing--obsidian-sync).
 
 ## Prerequisites
 

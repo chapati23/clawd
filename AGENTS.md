@@ -151,7 +151,7 @@ make dashboard-pair           # One-time: approve browser device pairing request
 make tailscale-ip
 
 # Add to hosts (replace IP if different)
-echo "100.91.85.88 moltbot-01.tail847073.ts.net" | sudo tee -a /etc/hosts
+echo "100.91.85.88 giskard.tail847073.ts.net" | sudo tee -a /etc/hosts
 ```
 
 This is needed because macOS's mDNSResponder can't reach Tailscale's DNS proxy (100.100.100.100) — a [known limitation](https://github.com/tailscale/tailscale/wiki/Tailscaled-on-macOS) of the CLI-only version. The GUI app from [tailscale.com/download](https://tailscale.com/download) handles DNS automatically if you prefer.

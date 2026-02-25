@@ -61,7 +61,7 @@ Secrets are stored in an encrypted credential store powered by [`pass`](https://
   shared/              # Encrypted to: master-key + ALL bot keys
     openai/api-key.gpg
     anthropic/api-key.gpg
-  bot-moltbot-01/      # Encrypted to: master-key + bot-key ONLY
+  bot-giskard/      # Encrypted to: master-key + bot-key ONLY
     telegram/bot-token.gpg
     notion/api-key.gpg
   infrastructure/      # Encrypted to: master-key ONLY (no bot access)
@@ -129,7 +129,7 @@ All credential changes happen on your **MacBook**, then sync to the server.
 
 ```bash
 pass insert shared/openai/api-key        # prompts for value
-pass insert bot-moltbot-01/slack/token    # bot-scoped credential
+pass insert bot-giskard/slack/token    # bot-scoped credential
 ```
 
 **Update an existing credential:**
@@ -198,7 +198,7 @@ GPG keys expire after 2 years. To rotate:
 ./scripts/credentials-rotate.sh master
 
 # Rotate a bot key
-./scripts/credentials-rotate.sh moltbot-01
+./scripts/credentials-rotate.sh giskard
 ```
 
 After rotating, re-deploy credentials to affected servers with `make setup`.

@@ -89,7 +89,7 @@ BOT_NAME=""
 if [[ -f "${TFVARS}" ]]; then
   BOT_NAME=$(tfvars_get "server_name" "${TFVARS}")
 fi
-BOT_NAME="${BOT_NAME:-moltbot-01}"
+BOT_NAME="${BOT_NAME:-giskard}"
 
 if ${USE_CREDENTIALS}; then
   step "Checking bot credentials"
