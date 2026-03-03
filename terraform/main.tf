@@ -1,4 +1,13 @@
 terraform {
+
+  cloud {
+    organization = "chapati"
+
+    workspaces {
+      name = "clawd"
+    }
+  }
+
   required_providers {
     hcloud = {
       source  = "hetznercloud/hcloud"
@@ -114,7 +123,8 @@ resource "hcloud_server" "openclaw" {
   user_data = local.user_data
 
   lifecycle {
-    ignore_changes = [user_data]
+    # user_data runs once at creation; ssh_keys is immutable post-creation
+    ignore_changes = [user_data, ssh_keys]
   }
 }
 

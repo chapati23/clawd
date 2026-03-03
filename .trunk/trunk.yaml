@@ -23,10 +23,11 @@ lint:
     - checkov@3.2.500
     - git-diff-check
     - prettier@3.8.1
-    - terrascan@1.18.1
     - tflint@0.35.0
+    # terrascan — disabled: its HCL parser chokes on Terraform's `cloud {}` block
+    # (unresolved upstream bug). Checkov covers the same security surface.
     # trivy@0.37.1 — disabled: Trunk's version has a Rego policy bug (AWS RDS).
-    # Re-enable when Trunk ships a newer Trivy. Checkov + Terrascan cover security.
+    # Re-enable when Trunk ships a newer Trivy. Checkov covers security.
     - trufflehog@3.31.3
     - yamllint@1.38.0
 actions:

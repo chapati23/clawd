@@ -1,8 +1,10 @@
-TF_DIR  := terraform
-SSH_KEY := $(TF_DIR)/id_ed25519
-IP      := $(shell terraform -chdir=$(TF_DIR) output -raw server_ip 2>/dev/null)
+TF_DIR    := terraform
+SSH_KEY   := $(TF_DIR)/id_ed25519
+IP        := $(shell terraform -chdir=$(TF_DIR) output -raw server_ip 2>/dev/null)
+# openclaw binary path on the server (molt user's npm-global prefix)
+OPENCLAW  := /home/molt/.npm-global/bin/openclaw
 
-.PHONY: setup destroy ssh logs stop restart update status add-bot rotate-key cred-status dashboard dashboard-setup dashboard-pair tailscale-ip tailscale-status
+.PHONY: setup destroy ssh logs stop restart update status add-bot rotate-key cred-status dashboard dashboard-setup dashboard-pair tailscale-ip tailscale-status mac-node-setup mac-node-approve mac-node-status mac-node-restart mac-node-update mac-node-token
 
 ## Setup & teardown ─────────────────────────────
 
@@ -32,7 +34,7 @@ restart:              ## Restart the OpenClaw gateway
 	@ssh -i $(SSH_KEY) molt@$(IP) "systemctl --user restart openclaw-gateway"
 
 update:               ## Update OpenClaw to latest version and restart
-	@ssh -i $(SSH_KEY) molt@$(IP) "sudo npm install -g openclaw@latest && systemctl --user restart openclaw-gateway"
+	@ssh -i $(SSH_KEY) molt@$(IP) "npm install -g openclaw@latest && systemctl --user restart openclaw-gateway"
 
 tunnel:               ## Open SSH tunnel for remote gateway access (port 18789)
 	@ssh -i $(SSH_KEY) -L 18789:127.0.0.1:18789 molt@$(IP)
@@ -52,10 +54,10 @@ dashboard:            ## Open OpenClaw dashboard in browser (via Tailscale)
 dashboard-setup:      ## Configure gateway for Tailscale dashboard access (run once after openclaw onboard)
 	@host=$$(ssh -i $(SSH_KEY) molt@$(IP) "tailscale status --json | python3 -c 'import sys,json; print(json.load(sys.stdin)[\"Self\"][\"DNSName\"].rstrip(\".\"))'") && \
 	 ssh -i $(SSH_KEY) molt@$(IP) "\
-	   openclaw config set gateway.trustedProxies '[\"127.0.0.1\"]' && \
-	   openclaw config set gateway.controlUi.allowedOrigins '[\"https://$$host\"]' && \
-	   openclaw config set gateway.auth.allowTailscale true && \
-	   openclaw config set gateway.tailscale.mode serve && \
+	   $(OPENCLAW) config set gateway.trustedProxies '[\"127.0.0.1\"]' && \
+	   $(OPENCLAW) config set gateway.controlUi.allowedOrigins '[\"https://$$host\"]' && \
+	   $(OPENCLAW) config set gateway.auth.allowTailscale true && \
+	   $(OPENCLAW) config set gateway.tailscale.mode serve && \
 	   systemctl --user restart openclaw-gateway && \
 	   sleep 3 && systemctl --user is-active openclaw-gateway" && \
 	 echo "" && echo "Gateway configured. Open: https://$$host/chat?session=main" && \
@@ -64,7 +66,7 @@ dashboard-setup:      ## Configure gateway for Tailscale dashboard access (run o
 dashboard-pair:       ## Approve pending Control UI device pairing request
 	@ssh -i $(SSH_KEY) molt@$(IP) "\
 	  REQ=\$$(python3 -c 'import json; d=json.load(open(\"/home/molt/.openclaw/devices/pending.json\")); ids=[v[\"requestId\"] for v in d.values()]; print(ids[0] if ids else \"\")' 2>/dev/null) && \
-	  if [ -n \"\$$REQ\" ]; then openclaw devices approve \"\$$REQ\"; else echo 'No pending pairing requests.'; fi"
+	  if [ -n \"\$$REQ\" ]; then $(OPENCLAW) devices approve \"\$$REQ\"; else echo 'No pending pairing requests.'; fi"
 
 ## Syncthing ─────────────────────────────────
 
@@ -76,6 +78,28 @@ syncthing-setup:      ## Run Syncthing setup helper on the server
 
 syncthing-id:         ## Print the server's Syncthing device ID
 	@ssh -i $(SSH_KEY) molt@$(IP) "syncthing -device-id"
+
+## Mac node ─────────────────────────────────────
+
+mac-node-setup:       ## Set up this Mac as an OpenClaw node (idempotent)
+	@./scripts/mac-node-setup.sh
+
+mac-node-approve:     ## Approve pending Mac node pairing request on the server
+	@ssh -i $(SSH_KEY) molt@$(IP) "\
+	  REQ=\$$(python3 -c 'import json; d=json.load(open(\"/home/molt/.openclaw/devices/pending.json\")); ids=[v[\"requestId\"] for v in d.values() if v.get(\"role\") == \"node\"]; print(ids[0] if ids else \"\")' 2>/dev/null) && \
+	  if [ -n \"\$$REQ\" ]; then $(OPENCLAW) devices approve \"\$$REQ\" && echo 'Node approved.'; else echo 'No pending node pairing requests.'; fi"
+
+mac-node-status:      ## Show Mac node service status
+	@openclaw node status
+
+mac-node-restart:     ## Restart Mac node service
+	@openclaw node restart
+
+mac-node-update:      ## Update openclaw on Mac and reinstall node service
+	@npm install -g openclaw@latest && ./scripts/mac-node-setup.sh
+
+mac-node-token:       ## Print gateway auth token (paste into Chrome extension Options)
+	@ssh -i $(SSH_KEY) molt@$(IP) "python3 -c \"import json; d=json.load(open('/home/molt/.openclaw/openclaw.json')); print(d.get('gateway',{}).get('auth',{}).get('token','(token not set)'))\""
 
 ## Credential management ───────────────────────
 

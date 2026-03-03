@@ -154,6 +154,15 @@ fi
 export TF_VAR_hcloud_token="${HCLOUD_TOKEN}"
 ok "Hetzner token resolved"
 
+# --- Terraform Cloud token (CLI auth, not a TF variable) ---
+if ${USE_CREDENTIALS}; then
+  TFC_TOKEN=$(pass_get "infrastructure/terraform-cloud/api-token" || true)
+  if [[ -n "${TFC_TOKEN}" ]]; then
+    export TF_TOKEN_app_terraform_io="${TFC_TOKEN}"
+    ok "Terraform Cloud token loaded from pass"
+  fi
+fi
+
 # --- Optional tokens (only resolve from pass to env vars) ---
 if ${USE_CREDENTIALS}; then
   for token_pair in "${TOKEN_MAP[@]}"; do

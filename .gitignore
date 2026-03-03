@@ -6,6 +6,9 @@ terraform/.terraform.lock.hcl
 terraform/terraform.tfvars
 terraform/id_ed25519
 terraform/id_ed25519.pub
+# Stray state files created outside the terraform/ directory
+terraform.tfstate
+terraform.tfstate.backup
 
 # Credential management — age-encrypted backups and deploy keys
 *.age
