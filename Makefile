@@ -4,7 +4,7 @@ IP        := $(shell terraform -chdir=$(TF_DIR) output -raw server_ip 2>/dev/nul
 # openclaw binary path on the server (molt user's npm-global prefix)
 OPENCLAW  := /home/molt/.npm-global/bin/openclaw
 
-.PHONY: setup destroy ssh logs stop restart update status add-bot rotate-key cred-status dashboard dashboard-setup dashboard-pair tailscale-ip tailscale-status mac-node-setup mac-node-approve mac-node-status mac-node-restart mac-node-update mac-node-token
+.PHONY: setup destroy ssh logs stop restart update status add-bot rotate-key cred-status dashboard dashboard-setup dashboard-pair tailscale-ip tailscale-status mac-node-setup mac-node-approve mac-node-status mac-node-restart mac-node-update mac-node-token mac-gateway-status mac-gateway-restart
 
 ## Setup & teardown ─────────────────────────────
 
@@ -20,7 +20,8 @@ ssh:                  ## SSH into the server
 	@ssh -i $(SSH_KEY) molt@$(IP)
 
 logs:                 ## Tail OpenClaw gateway logs
-	@ssh -i $(SSH_KEY) molt@$(IP) "journalctl --user -u openclaw-gateway -f"
+	@ssh -i $(SSH_KEY) molt@$(IP) "journalctl --user -u openclaw-gateway -f -o cat" | \
+	  perl -pe 'if (/\b(error|fail|fatal|exception|crash)\b/i) { s/.*/\e[31m$$&\e[0m/ } elsif (/\b(warn|restarting|blocked|stuck|timeout|limited)\b/i) { s/.*/\e[33m$$&\e[0m/ } else { s/\[([^\]]+)\]/\e[36m[$$1]\e[0m/g }'
 
 status:               ## Show OpenClaw service status
 	@ssh -i $(SSH_KEY) molt@$(IP) "systemctl --user status openclaw-gateway"
@@ -92,8 +93,14 @@ mac-node-approve:     ## Approve pending Mac node pairing request on the server
 mac-node-status:      ## Show Mac node service status
 	@openclaw node status
 
-mac-node-restart:     ## Restart Mac node service
-	@openclaw node restart
+mac-node-restart:     ## Restart Mac node service + local gateway (relay)
+	@openclaw node restart && launchctl kickstart -k gui/$$(id -u)/ai.openclaw.gateway 2>/dev/null; true
+
+mac-gateway-status:   ## Show Mac local gateway status (browser relay)
+	@launchctl list ai.openclaw.gateway 2>/dev/null | head -5
+
+mac-gateway-restart:  ## Restart Mac local gateway (restarts relay on 18792)
+	@launchctl kickstart -k gui/$$(id -u)/ai.openclaw.gateway 2>/dev/null
 
 mac-node-update:      ## Update openclaw on Mac and reinstall node service
 	@npm install -g openclaw@latest && ./scripts/mac-node-setup.sh

@@ -26,7 +26,8 @@ scripts/
 ├── credentials-server-setup.sh  # Server-side: import keys, clone credential store
 ├── credentials-backup.sh   # Cron (daily 03:00): tarball + push + prune 90d
 ├── credentials-rotate.sh   # Day-2: GPG key rotation (master or per-bot)
-└── gcp-setup.sh            # GCP read-only SA bootstrap for agents
+├── gcp-setup.sh            # GCP read-only SA bootstrap for agents
+└── mac-node-setup.sh       # Mac browser node: install local gateway + node host + Chrome extension relay
 
 terraform/
 ├── main.tf                 # Providers, SSH key gen, firewall (SSH + Syncthing), Hetzner server, Tailscale, outputs
@@ -84,6 +85,16 @@ make dashboard-setup          # One-time: configure gateway for Tailscale dashbo
 make dashboard-pair           # Approve pending browser device pairing request
 make tailscale-ip             # Print the server's Tailscale IP
 make tailscale-status         # Show Tailscale connection status
+
+# Mac browser node (run locally)
+make mac-node-setup           # Set up this Mac as an OpenClaw node (idempotent)
+make mac-node-approve         # Approve pending node pairing on the server
+make mac-node-status          # Show Mac node service status
+make mac-node-restart         # Restart Mac node service + local gateway
+make mac-node-update          # Update openclaw on Mac and reinstall both services
+make mac-node-token           # Print gateway token (for Chrome extension Options)
+make mac-gateway-status       # Show Mac local gateway status (browser relay)
+make mac-gateway-restart      # Restart Mac local gateway (relay at :18792)
 
 # Credential management
 make add-bot NAME=mybot       # Create new bot credentials
@@ -215,6 +226,67 @@ These settings are applied by `make dashboard-setup` and stored in `~/.openclaw/
 | `gateway.tailscale.mode`           | `serve`                  | Auto-configure `tailscale serve` for HTTPS   |
 
 Device pairing is a separate step from auth — each new browser must be approved once via `make dashboard-pair` (or `openclaw devices approve <requestId>` on the server).
+
+### Setting up the Mac as a browser node
+
+Agents running on Hetzner can be routed through your Mac's real Chrome browser to bypass bot detection (site fingerprinting, IP reputation, etc.).
+
+**Architecture:**
+
+```
+Agent (Hetzner) → Gateway (Hetzner) → Node host (Mac, launchd :node)
+                                            ↓ routes browser ops to local gateway
+                                       Local gateway (Mac, launchd :gateway)
+                                            ↓ browser control server (:18791)
+                                       Chrome extension relay (:18792)
+                                            ↓ Chrome Debugger API
+                                       Your Chrome tab
+```
+
+Two launchd services run on the Mac:
+
+- `ai.openclaw.gateway` — local gateway in `mode=local`, starts the browser relay at `:18792`
+- `ai.openclaw.node` — connects to Hetzner so the agent can route browser tasks to your Mac
+
+The relay at `:18792` is started by the **local gateway process**, not the node host. The node host only handles `system.run`/`system.which` and advertises browser capability to Hetzner.
+
+**One-time setup:**
+
+```bash
+make mac-node-setup     # installs both services + Chrome extension files
+make mac-node-approve   # approves the Mac's device pairing on the server
+```
+
+Then in Chrome (one-time):
+
+1. `chrome://extensions` → enable Developer mode → "Load unpacked" → select path printed by setup
+2. Pin the extension to the toolbar
+3. Open extension Options → paste token from `make mac-node-token` → port `18792`
+
+**Attach a tab for agent control:** open the target tab → click the OpenClaw toolbar icon → badge shows `ON`.
+
+**Prerequisites (CLI Tailscale):**
+
+- `sudo brew services start tailscale` — start Tailscale as a system daemon (survives reboots)
+- `make mac-node-setup` handles the `/etc/hosts` DNS entry for `.ts.net` automatically
+
+**Day-2 operations:**
+
+```bash
+make mac-node-status      # is the node host running?
+make mac-node-restart     # restart node host + local gateway
+make mac-gateway-status   # is the local gateway (relay) running?
+make mac-gateway-restart  # restart local gateway only (relay at :18792)
+make mac-node-update      # update openclaw on Mac and reinstall both services
+make mac-node-token       # print gateway token (re-paste if extension loses auth)
+```
+
+**Troubleshooting:** If the extension shows `!` badge, check in order:
+
+1. `tailscale status` — Tailscale must be connected
+2. `make mac-gateway-status` — local gateway must be running
+3. `lsof -i :18792` — relay must be listening
+4. If stale: `make mac-gateway-restart` to bring it back up
 
 ### Adding a new cloud-init package or step
 
