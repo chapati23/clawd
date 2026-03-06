@@ -470,6 +470,19 @@ cat "${SETUP_KNOWN_HOSTS}" >> ~/.ssh/known_hosts
 ok "Host key added to ~/.ssh/known_hosts"
 
 # ==============================================================
+# Phase 13: GWS credentials (if available)
+# ==============================================================
+
+if ${USE_CREDENTIALS} && pass_entry_exists "shared/gws/mentolabs/credentials"; then
+  step "Deploying GWS credentials to server"
+  ${SCP_CMD} "${SCRIPT_DIR}/scripts/gws-setup.sh" "molt@${SERVER_IP}:~/"
+  ${SSH_CMD} "bash ~/gws-setup.sh && rm -f ~/gws-setup.sh"
+  ok "GWS credentials deployed"
+else
+  info "Skipping GWS setup (run 'make gws-auth-init' on Mac first, then re-run setup)"
+fi
+
+# ==============================================================
 # Done
 # ==============================================================
 

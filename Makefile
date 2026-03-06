@@ -4,7 +4,7 @@ IP        := $(shell terraform -chdir=$(TF_DIR) output -raw server_ip 2>/dev/nul
 # openclaw binary path on the server (molt user's npm-global prefix)
 OPENCLAW  := /home/molt/.npm-global/bin/openclaw
 
-.PHONY: setup destroy ssh logs stop restart update status add-bot rotate-key cred-status dashboard dashboard-setup dashboard-pair tailscale-ip tailscale-status mac-node-setup mac-node-approve mac-node-status mac-node-restart mac-node-update mac-node-token mac-gateway-status mac-gateway-restart
+.PHONY: setup destroy ssh logs stop restart update status add-bot rotate-key cred-status dashboard dashboard-setup dashboard-pair tailscale-ip tailscale-status mac-node-setup mac-node-approve mac-node-status mac-node-restart mac-node-update mac-node-token mac-gateway-status mac-gateway-restart gws-auth-init gws-setup gws-login
 
 ## Setup & teardown ─────────────────────────────
 
@@ -107,6 +107,18 @@ mac-node-update:      ## Update openclaw on Mac and reinstall node service
 
 mac-node-token:       ## Print gateway auth token (paste into Chrome extension Options)
 	@ssh -i $(SSH_KEY) molt@$(IP) "python3 -c \"import json; d=json.load(open('/home/molt/.openclaw/openclaw.json')); print(d.get('gateway',{}).get('auth',{}).get('token','(token not set)'))\""
+
+## Google Workspace ─────────────────────────────
+
+gws-auth-init:        ## One-time Mac setup: install gws, OAuth login, export credentials to pass
+	@./scripts/gws-auth-init.sh
+
+gws-setup:            ## Deploy GWS credentials from pass to this machine (idempotent)
+	@./scripts/gws-setup.sh
+
+gws-login:            ## Re-authenticate gws after token expiry
+	@gws auth login -s drive,gmail,calendar,sheets,docs,people,chat,tasks,slides && \
+	 ./scripts/gws-auth-init.sh --export-only
 
 ## Credential management ───────────────────────
 
