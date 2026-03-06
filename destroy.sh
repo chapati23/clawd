@@ -14,14 +14,14 @@ TF_DIR="${SCRIPT_DIR}/terraform"
 step "Checking prerequisites"
 
 if ! command -v terraform &>/dev/null; then
-  error "Terraform is not installed"
-  exit 1
+	error "Terraform is not installed"
+	exit 1
 fi
 ok "Terraform available"
 
 if [[ ! -f "${TF_DIR}/terraform.tfstate" ]]; then
-  error "No Terraform state found at ${TF_DIR}/terraform.tfstate -- nothing to destroy"
-  exit 1
+	error "No Terraform state found at ${TF_DIR}/terraform.tfstate -- nothing to destroy"
+	exit 1
 fi
 ok "State file found"
 
@@ -33,14 +33,14 @@ info "Server IP: ${SERVER_IP}"
 # Confirmation
 # ----------------------------------------------
 
-if [[ "${1:-}" != "--yes" ]]; then
-  printf '\n%b  This will permanently destroy your OpenClaw server and all its data.%b\n\n' "${RED}${BOLD}" "${NC}"
-  printf "  Continue? [y/N] "
-  read -r confirm
-  if [[ "${confirm}" != "y" && "${confirm}" != "Y" ]]; then
-    info "Aborted."
-    exit 0
-  fi
+if [[ ${1-} != "--yes" ]]; then
+	printf '\n%b  This will permanently destroy your OpenClaw server and all its data.%b\n\n' "${RED}${BOLD}" "${NC}"
+	printf "  Continue? [y/N] "
+	read -r confirm
+	if [[ ${confirm} != "y" && ${confirm} != "Y" ]]; then
+		info "Aborted."
+		exit 0
+	fi
 fi
 
 # ----------------------------------------------
@@ -50,10 +50,10 @@ fi
 step "Disabling delete protection"
 
 terraform -chdir="${TF_DIR}" apply \
-  -var="enable_protection=false" \
-  -auto-approve \
-  -input=false \
-  -compact-warnings
+	-var="enable_protection=false" \
+	-auto-approve \
+	-input=false \
+	-compact-warnings
 ok "Protections disabled"
 
 # ----------------------------------------------
@@ -63,9 +63,9 @@ ok "Protections disabled"
 step "Destroying infrastructure"
 
 terraform -chdir="${TF_DIR}" destroy \
-  -var="enable_protection=false" \
-  -auto-approve \
-  -input=false
+	-var="enable_protection=false" \
+	-auto-approve \
+	-input=false
 ok "All resources destroyed"
 
 # ----------------------------------------------

@@ -40,10 +40,10 @@ echo "-------------------------------------------"
 # --------------------------------------------------
 
 for f in "${KEY_BUNDLE}" "${DEPLOY_KEY}"; do
-  if [[ ! -f "${f}" ]]; then
-    error "File not found: ${f}"
-    exit 1
-  fi
+	if [[ ! -f ${f} ]]; then
+		error "File not found: ${f}"
+		exit 1
+	fi
 done
 ok "All input files present"
 
@@ -74,15 +74,15 @@ cp "${DEPLOY_KEY}" ~/.ssh/github-deploy
 chmod 600 ~/.ssh/github-deploy
 
 if ! grep -q "github-deploy" ~/.ssh/config 2>/dev/null; then
-  cat >> ~/.ssh/config <<EOF
+	cat >>~/.ssh/config <<EOF
 
 Host github.com
     IdentityFile ~/.ssh/github-deploy
     IdentitiesOnly yes
 EOF
-  chmod 600 ~/.ssh/config
+	chmod 600 ~/.ssh/config
 fi
-ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
+ssh-keyscan -t ed25519 github.com >>~/.ssh/known_hosts 2>/dev/null
 ok "SSH deploy key configured"
 
 # --------------------------------------------------
@@ -93,15 +93,15 @@ info "Importing GPG key..."
 TMPDIR_SECURE=$(mktemp -d)
 MOUNTED=false
 if sudo mount -t tmpfs -o "size=10M,mode=700,uid=$(id -u)" tmpfs "${TMPDIR_SECURE}" 2>/dev/null; then
-  MOUNTED=true
+	MOUNTED=true
 fi
 cleanup() {
-  if ${MOUNTED}; then
-    sudo umount "${TMPDIR_SECURE}" 2>/dev/null || true
-  else
-    rm -f "${TMPDIR_SECURE}"/* 2>/dev/null || true
-  fi
-  rmdir "${TMPDIR_SECURE}" 2>/dev/null || true
+	if ${MOUNTED}; then
+		sudo umount "${TMPDIR_SECURE}" 2>/dev/null || true
+	else
+		rm -f "${TMPDIR_SECURE}"/* 2>/dev/null || true
+	fi
+	rmdir "${TMPDIR_SECURE}" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM ERR
 
@@ -111,11 +111,11 @@ gpg --batch --import "${TMPDIR_SECURE}/key.asc" 2>&1
 
 # Trust imported keys
 for fingerprint in $(gpg --list-keys --fingerprint 2>/dev/null | awk '/^ / { gsub(/ /, ""); print }'); do
-  echo "${fingerprint}:6:" | gpg --import-ownertrust 2>/dev/null || true
+	echo "${fingerprint}:6:" | gpg --import-ownertrust 2>/dev/null || true
 done
 
-BOT_KEY_ID=$(gpg --list-keys --keyid-format long "bot-${BOT_NAME}@openclaw.local" 2>/dev/null \
-  | awk '/^pub/ { split($2, a, "/"); print a[2]; exit }')
+BOT_KEY_ID=$(gpg --list-keys --keyid-format long "bot-${BOT_NAME}@openclaw.local" 2>/dev/null |
+	awk '/^pub/ { split($2, a, "/"); print a[2]; exit }')
 ok "Bot GPG key imported: ${BOT_KEY_ID}"
 
 # --------------------------------------------------
@@ -123,7 +123,7 @@ ok "Bot GPG key imported: ${BOT_KEY_ID}"
 # --------------------------------------------------
 
 mkdir -p ~/.gnupg && chmod 700 ~/.gnupg
-cat > ~/.gnupg/gpg-agent.conf <<EOF
+cat >~/.gnupg/gpg-agent.conf <<EOF
 default-cache-ttl 3600
 max-cache-ttl 7200
 EOF
@@ -134,19 +134,19 @@ gpgconf --kill gpg-agent 2>/dev/null || true
 # --------------------------------------------------
 
 if [[ -d "${HOME}/.password-store/.git" ]]; then
-  info "Credential store already cloned, pulling latest..."
-  git -C "${HOME}/.password-store" pull --ff-only 2>/dev/null || true
-  ok "Credential store updated"
+	info "Credential store already cloned, pulling latest..."
+	git -C "${HOME}/.password-store" pull --ff-only 2>/dev/null || true
+	ok "Credential store updated"
 else
-  # Remove stale directory if it exists without .git (e.g. from pass package install)
-  if [[ -d "${HOME}/.password-store" ]]; then
-    warn "Removing stale ~/.password-store (not a git repo)..."
-    rm -rf "${HOME}/.password-store"
-  fi
-  info "Cloning credential store..."
-  git clone "${PASS_REPO}" "${HOME}/.password-store"
-  chmod 700 "${HOME}/.password-store"
-  ok "Credential store cloned"
+	# Remove stale directory if it exists without .git (e.g. from pass package install)
+	if [[ -d "${HOME}/.password-store" ]]; then
+		warn "Removing stale ~/.password-store (not a git repo)..."
+		rm -rf "${HOME}/.password-store"
+	fi
+	info "Cloning credential store..."
+	git clone "${PASS_REPO}" "${HOME}/.password-store"
+	chmod 700 "${HOME}/.password-store"
+	ok "Credential store cloned"
 fi
 
 # --------------------------------------------------
@@ -158,8 +158,8 @@ BOT_ENTRIES=$(find "${HOME}/.password-store/bot-${BOT_NAME}/" -name '*.gpg' 2>/d
 SHARED_ENTRIES=$(find "${HOME}/.password-store/shared/" -name '*.gpg' 2>/dev/null | wc -l || echo "0")
 info "bot-${BOT_NAME}/: ${BOT_ENTRIES} entries"
 info "shared/:          ${SHARED_ENTRIES} entries"
-if [[ "${BOT_ENTRIES}" -eq 0 ]] && [[ "${SHARED_ENTRIES}" -eq 0 ]]; then
-  warn "No credentials found yet. Store will populate after you run 'pass insert' on your MacBook and push."
+if [[ ${BOT_ENTRIES} -eq 0 ]] && [[ ${SHARED_ENTRIES} -eq 0 ]]; then
+	warn "No credentials found yet. Store will populate after you run 'pass insert' on your MacBook and push."
 fi
 
 # --------------------------------------------------

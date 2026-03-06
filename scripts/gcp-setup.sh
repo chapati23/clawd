@@ -41,7 +41,7 @@ SA_EMAIL="${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 PASS_PATH="bot-${BOT_NAME}/gcp/${PROJECT_ID}/sa-key"
 
 TMPKEY=""
-cleanup() { [[ -n "${TMPKEY}" ]] && rm -f "${TMPKEY}"; }
+cleanup() { [[ -n ${TMPKEY} ]] && rm -f "${TMPKEY}"; }
 trap cleanup EXIT
 
 # --------------------------------------------------
@@ -51,35 +51,35 @@ trap cleanup EXIT
 step "Setting up GCP read-only access for ${BOT_NAME}"
 
 if ! command -v gcloud &>/dev/null; then
-  error "gcloud CLI not installed."
-  error "If this is a clawd-provisioned server, re-run setup or install manually:"
-  error "  https://cloud.google.com/sdk/docs/install"
-  exit 1
+	error "gcloud CLI not installed."
+	error "If this is a clawd-provisioned server, re-run setup or install manually:"
+	error "  https://cloud.google.com/sdk/docs/install"
+	exit 1
 fi
 
 # Check if already set up
 if pass_entry_exists "${PASS_PATH}"; then
-  info "Service account key already in pass at ${PASS_PATH}"
-  if gcloud auth list --format="value(account)" --filter="status:ACTIVE" 2>/dev/null | grep -qF "${SA_EMAIL}"; then
-    ok "Already authenticated as ${SA_EMAIL}"
-    exit 0
-  else
-    info "Key exists but not activated — re-activating..."
-    TMPKEY="$(mktemp)"
-    pass show "${PASS_PATH}" > "${TMPKEY}"
-    gcloud auth activate-service-account --key-file="${TMPKEY}" --project="${PROJECT_ID}"
-    gcloud config set project "${PROJECT_ID}"
-    ok "Authenticated as ${SA_EMAIL}"
-    exit 0
-  fi
+	info "Service account key already in pass at ${PASS_PATH}"
+	if gcloud auth list --format="value(account)" --filter="status:ACTIVE" 2>/dev/null | grep -qF "${SA_EMAIL}"; then
+		ok "Already authenticated as ${SA_EMAIL}"
+		exit 0
+	else
+		info "Key exists but not activated — re-activating..."
+		TMPKEY="$(mktemp)"
+		pass show "${PASS_PATH}" >"${TMPKEY}"
+		gcloud auth activate-service-account --key-file="${TMPKEY}" --project="${PROJECT_ID}"
+		gcloud config set project "${PROJECT_ID}"
+		ok "Authenticated as ${SA_EMAIL}"
+		exit 0
+	fi
 fi
 
 # Need an authenticated admin session to create the SA
 if ! gcloud auth list --format="value(account)" --filter="status:ACTIVE" 2>/dev/null | grep -q .; then
-  error "No active gcloud auth session."
-  error "Ask the project owner to run this script from their machine,"
-  error "or authenticate with: gcloud auth login --no-launch-browser"
-  exit 1
+	error "No active gcloud auth session."
+	error "Ask the project owner to run this script from their machine,"
+	error "or authenticate with: gcloud auth login --no-launch-browser"
+	exit 1
 fi
 
 # --------------------------------------------------
@@ -89,13 +89,13 @@ fi
 step "Creating service account: ${SA_NAME}"
 
 if gcloud iam service-accounts describe "${SA_EMAIL}" --project="${PROJECT_ID}" &>/dev/null; then
-  ok "Service account already exists: ${SA_EMAIL}"
+	ok "Service account already exists: ${SA_EMAIL}"
 else
-  gcloud iam service-accounts create "${SA_NAME}" \
-    --project="${PROJECT_ID}" \
-    --display-name="${BOT_NAME} Read-Only Agent" \
-    --description="Read-only access for ${BOT_NAME} agent (logs, Cloud Run status)"
-  ok "Created ${SA_EMAIL}"
+	gcloud iam service-accounts create "${SA_NAME}" \
+		--project="${PROJECT_ID}" \
+		--display-name="${BOT_NAME} Read-Only Agent" \
+		--description="Read-only access for ${BOT_NAME} agent (logs, Cloud Run status)"
+	ok "Created ${SA_EMAIL}"
 fi
 
 # --------------------------------------------------
@@ -105,18 +105,18 @@ fi
 step "Granting read-only roles"
 
 ROLES=(
-  "roles/run.viewer"              # View Cloud Run services, revisions, logs
-  "roles/logging.viewer"          # View Cloud Logging entries
-  "roles/cloudscheduler.jobRunner" # Trigger Cloud Scheduler jobs (e.g. bun trigger)
+	"roles/run.viewer"               # View Cloud Run services, revisions, logs
+	"roles/logging.viewer"           # View Cloud Logging entries
+	"roles/cloudscheduler.jobRunner" # Trigger Cloud Scheduler jobs (e.g. bun trigger)
 )
 
 for role in "${ROLES[@]}"; do
-  gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
-    --member="serviceAccount:${SA_EMAIL}" \
-    --role="${role}" \
-    --condition=None \
-    --quiet &>/dev/null
-  ok "Granted ${role}"
+	gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+		--member="serviceAccount:${SA_EMAIL}" \
+		--role="${role}" \
+		--condition=None \
+		--quiet &>/dev/null
+	ok "Granted ${role}"
 done
 
 # --------------------------------------------------
@@ -128,24 +128,24 @@ step "Creating service account key"
 TMPKEY="$(mktemp)"
 
 gcloud iam service-accounts keys create "${TMPKEY}" \
-  --iam-account="${SA_EMAIL}" \
-  --project="${PROJECT_ID}"
+	--iam-account="${SA_EMAIL}" \
+	--project="${PROJECT_ID}"
 
 # Store in pass
 if pass_initialized; then
-  pass insert -m -f "${PASS_PATH}" < "${TMPKEY}" &>/dev/null
-  ok "Key stored in pass: ${PASS_PATH}"
-  if git -C "${HOME}/.password-store" push &>/dev/null; then
-    ok "Pushed to credentials repo"
-  else
-    warn "Could not push to credentials repo — run: cd ~/.password-store && git push"
-  fi
+	pass insert -m -f "${PASS_PATH}" <"${TMPKEY}" &>/dev/null
+	ok "Key stored in pass: ${PASS_PATH}"
+	if git -C "${HOME}/.password-store" push &>/dev/null; then
+		ok "Pushed to credentials repo"
+	else
+		warn "Could not push to credentials repo — run: cd ~/.password-store && git push"
+	fi
 else
-  warn "pass not initialized — saving key to ~/.config/gcloud/${PROJECT_ID}-sa-key.json"
-  mkdir -p ~/.config/gcloud
-  cp "${TMPKEY}" ~/.config/gcloud/"${PROJECT_ID}-sa-key.json"
-  chmod 600 ~/.config/gcloud/"${PROJECT_ID}-sa-key.json"
-  ok "Key saved to ~/.config/gcloud/${PROJECT_ID}-sa-key.json"
+	warn "pass not initialized — saving key to ~/.config/gcloud/${PROJECT_ID}-sa-key.json"
+	mkdir -p ~/.config/gcloud
+	cp "${TMPKEY}" ~/.config/gcloud/"${PROJECT_ID}-sa-key.json"
+	chmod 600 ~/.config/gcloud/"${PROJECT_ID}-sa-key.json"
+	ok "Key saved to ~/.config/gcloud/${PROJECT_ID}-sa-key.json"
 fi
 
 # --------------------------------------------------

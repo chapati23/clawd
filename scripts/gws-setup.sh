@@ -21,17 +21,21 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # lib.sh may not exist on server (script is SCP'd over); inline minimal helpers
 if [[ -f "${SCRIPT_DIR}/lib.sh" ]]; then
-  # shellcheck source=lib.sh
-  source "${SCRIPT_DIR}/lib.sh"
+	# shellcheck source=lib.sh
+	source "${SCRIPT_DIR}/lib.sh"
 else
-  RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'
-  CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
-  info()  { printf '%b[info]%b  %s\n' "${CYAN}"   "${NC}" "$*"; }
-  ok()    { printf '%b[ok]%b    %s\n' "${GREEN}"  "${NC}" "$*"; }
-  warn()  { printf '%b[warn]%b  %s\n' "${YELLOW}" "${NC}" "$*"; }
-  error() { printf '%b[error]%b %s\n' "${RED}"    "${NC}" "$*" >&2; }
-  step()  { printf '\n%b> %s%b\n' "${BOLD}" "$*" "${NC}"; }
-  pass_entry_exists() { [[ -f "${HOME}/.password-store/${1}.gpg" ]]; }
+	RED='\033[0;31m'
+	GREEN='\033[0;32m'
+	YELLOW='\033[0;33m'
+	CYAN='\033[0;36m'
+	BOLD='\033[1m'
+	NC='\033[0m'
+	info() { printf '%b[info]%b  %s\n' "${CYAN}" "${NC}" "$*"; }
+	ok() { printf '%b[ok]%b    %s\n' "${GREEN}" "${NC}" "$*"; }
+	warn() { printf '%b[warn]%b  %s\n' "${YELLOW}" "${NC}" "$*"; }
+	error() { printf '%b[error]%b %s\n' "${RED}" "${NC}" "$*" >&2; }
+	step() { printf '\n%b> %s%b\n' "${BOLD}" "$*" "${NC}"; }
+	pass_entry_exists() { [[ -f "${HOME}/.password-store/${1}.gpg" ]]; }
 fi
 
 # npm-global bin may not be in PATH for non-login SSH sessions
@@ -50,29 +54,29 @@ step "GWS setup"
 # --------------------------------------------------
 
 if [[ -d "${HOME}/.password-store/.git" ]]; then
-  info "Syncing credential store..."
-  if git -C "${HOME}/.password-store" pull --ff-only &>/dev/null; then
-    ok "Credential store up to date"
-  else
-    warn "Could not pull credential store — continuing with local state"
-  fi
+	info "Syncing credential store..."
+	if git -C "${HOME}/.password-store" pull --ff-only &>/dev/null; then
+		ok "Credential store up to date"
+	else
+		warn "Could not pull credential store — continuing with local state"
+	fi
 fi
 
 if ! pass_entry_exists "${PASS_CREDENTIALS}" || ! pass_entry_exists "${PASS_CLIENT_SECRET}"; then
-  warn "GWS credentials not found in pass."
-  warn "Run 'make gws-auth-init' on your Mac first, then re-run this script."
-  exit 0
+	warn "GWS credentials not found in pass."
+	warn "Run 'make gws-auth-init' on your Mac first, then re-run this script."
+	exit 0
 fi
 
 # --------------------------------------------------
 # Idempotency: skip if already working
 # --------------------------------------------------
 
-if command -v gws &>/dev/null \
-  && [[ -f "${GWS_CONFIG_DIR}/credentials.json" ]] \
-  && gws drive files list --params '{"pageSize":1}' &>/dev/null 2>&1; then
-  ok "GWS already configured and working"
-  exit 0
+if command -v gws &>/dev/null &&
+	[[ -f "${GWS_CONFIG_DIR}/credentials.json" ]] &&
+	gws drive files list --params '{"pageSize":1}' &>/dev/null 2>&1; then
+	ok "GWS already configured and working"
+	exit 0
 fi
 
 # --------------------------------------------------
@@ -80,11 +84,11 @@ fi
 # --------------------------------------------------
 
 if ! command -v gws &>/dev/null; then
-  step "Installing gws"
-  npm install -g @googleworkspace/cli
-  ok "gws installed"
+	step "Installing gws"
+	npm install -g @googleworkspace/cli
+	ok "gws installed"
 else
-  ok "gws already installed"
+	ok "gws already installed"
 fi
 
 # --------------------------------------------------
@@ -97,23 +101,23 @@ mkdir -p "${GWS_CONFIG_DIR}"
 
 # Create files with restricted permissions before writing secrets
 for f in client_secret.json credentials.json; do
-  touch "${GWS_CONFIG_DIR}/${f}" && chmod 600 "${GWS_CONFIG_DIR}/${f}"
+	touch "${GWS_CONFIG_DIR}/${f}" && chmod 600 "${GWS_CONFIG_DIR}/${f}"
 done
-pass show "${PASS_CLIENT_SECRET}" > "${GWS_CONFIG_DIR}/client_secret.json"
+pass show "${PASS_CLIENT_SECRET}" >"${GWS_CONFIG_DIR}/client_secret.json"
 
 # Inject quota_project_id so gws sends x-goog-user-project: giskard-bot on every request.
 # gws reads quota_project_id from GOOGLE_APPLICATION_CREDENTIALS (or the gcloud ADC file).
 # On the server there is no ADC file, so we embed it in credentials.json and point the env var there.
-pass show "${PASS_CREDENTIALS}" \
-  | python3 -c "import sys,json; d=json.load(sys.stdin); d.setdefault('quota_project_id','giskard-bot'); print(json.dumps(d))" \
-  > "${GWS_CONFIG_DIR}/credentials.json"
+pass show "${PASS_CREDENTIALS}" |
+	python3 -c "import sys,json; d=json.load(sys.stdin); d.setdefault('quota_project_id','giskard-bot'); print(json.dumps(d))" \
+		>"${GWS_CONFIG_DIR}/credentials.json"
 
 # Persist GOOGLE_APPLICATION_CREDENTIALS so all future shell sessions (and agents) pick it up
 CREDS_FILE="${GWS_CONFIG_DIR}/credentials.json"
 for rc in "${HOME}/.profile" "${HOME}/.bashrc"; do
-  if [[ -f "${rc}" ]] && ! grep -q "GOOGLE_APPLICATION_CREDENTIALS" "${rc}" 2>/dev/null; then
-    echo "export GOOGLE_APPLICATION_CREDENTIALS=${CREDS_FILE}" >> "${rc}"
-  fi
+	if [[ -f ${rc} ]] && ! grep -q "GOOGLE_APPLICATION_CREDENTIALS" "${rc}" 2>/dev/null; then
+		echo "export GOOGLE_APPLICATION_CREDENTIALS=${CREDS_FILE}" >>"${rc}"
+	fi
 done
 export GOOGLE_APPLICATION_CREDENTIALS="${CREDS_FILE}"
 
@@ -123,51 +127,54 @@ ok "Credentials written to ${GWS_CONFIG_DIR}"
 # Step 3: Install OpenClaw skills (if applicable)
 # --------------------------------------------------
 
-if [[ -d "${OPENCLAW_SKILLS_DIR}" ]]; then
-  step "Installing OpenClaw GWS skills"
+if [[ -d ${OPENCLAW_SKILLS_DIR} ]]; then
+	step "Installing OpenClaw GWS skills"
 
-  # Check if all skills are already installed
-  all_installed=true
-  for skill in "${GWS_SKILLS[@]}"; do
-    [[ -d "${OPENCLAW_SKILLS_DIR}/gws-${skill}" ]] || { all_installed=false; break; }
-  done
+	# Check if all skills are already installed
+	all_installed=true
+	for skill in "${GWS_SKILLS[@]}"; do
+		[[ -d "${OPENCLAW_SKILLS_DIR}/gws-${skill}" ]] || {
+			all_installed=false
+			break
+		}
+	done
 
-  if ${all_installed}; then
-    ok "All GWS skills already installed"
-  elif ! command -v git &>/dev/null; then
-    warn "git not found — skipping skills install"
-  else
-    info "Cloning gws skills from GitHub..."
-    GWS_TMPDIR="$(mktemp -d)"
-    # shellcheck disable=SC2064
-    trap "rm -rf '${GWS_TMPDIR}'" EXIT
+	if ${all_installed}; then
+		ok "All GWS skills already installed"
+	elif ! command -v git &>/dev/null; then
+		warn "git not found — skipping skills install"
+	else
+		info "Cloning gws skills from GitHub..."
+		GWS_TMPDIR="$(mktemp -d)"
+		# shellcheck disable=SC2064
+		trap "rm -rf '${GWS_TMPDIR}'" EXIT
 
-    # Sparse clone — fetch only the skills/ subdirectories we need
-    git clone --depth=1 --filter=blob:none --sparse \
-      https://github.com/googleworkspace/cli "${GWS_TMPDIR}" &>/dev/null
+		# Sparse clone — fetch only the skills/ subdirectories we need
+		git clone --depth=1 --filter=blob:none --sparse \
+			https://github.com/googleworkspace/cli "${GWS_TMPDIR}" &>/dev/null
 
-    sparse_paths=()
-    for skill in "${GWS_SKILLS[@]}"; do
-      sparse_paths+=("skills/gws-${skill}")
-    done
-    git -C "${GWS_TMPDIR}" sparse-checkout set "${sparse_paths[@]}" &>/dev/null
+		sparse_paths=()
+		for skill in "${GWS_SKILLS[@]}"; do
+			sparse_paths+=("skills/gws-${skill}")
+		done
+		git -C "${GWS_TMPDIR}" sparse-checkout set "${sparse_paths[@]}" &>/dev/null
 
-    for skill in "${GWS_SKILLS[@]}"; do
-      skill_src="${GWS_TMPDIR}/skills/gws-${skill}"
-      skill_dst="${OPENCLAW_SKILLS_DIR}/gws-${skill}"
-      if [[ -d "${skill_dst}" ]]; then
-        ok "Skill already installed: gws-${skill}"
-      elif [[ -d "${skill_src}" ]]; then
-        cp -r "${skill_src}" "${skill_dst}"
-        ok "Installed gws-${skill}"
-      else
-        warn "Skill not found in repo: gws-${skill}"
-      fi
-    done
-  fi
+		for skill in "${GWS_SKILLS[@]}"; do
+			skill_src="${GWS_TMPDIR}/skills/gws-${skill}"
+			skill_dst="${OPENCLAW_SKILLS_DIR}/gws-${skill}"
+			if [[ -d ${skill_dst} ]]; then
+				ok "Skill already installed: gws-${skill}"
+			elif [[ -d ${skill_src} ]]; then
+				cp -r "${skill_src}" "${skill_dst}"
+				ok "Installed gws-${skill}"
+			else
+				warn "Skill not found in repo: gws-${skill}"
+			fi
+		done
+	fi
 else
-  info "OpenClaw skills directory not found — skipping skill install"
-  info "(Run 'openclaw onboard' first if you want GWS skills)"
+	info "OpenClaw skills directory not found — skipping skill install"
+	info "(Run 'openclaw onboard' first if you want GWS skills)"
 fi
 
 # --------------------------------------------------
@@ -177,11 +184,11 @@ fi
 step "Verifying access"
 
 if gws drive files list --params '{"pageSize": 1}' &>/dev/null 2>&1; then
-  ok "Drive API access confirmed"
+	ok "Drive API access confirmed"
 else
-  error "Smoke test failed — credentials may be expired or APIs not enabled"
-  error "Re-authenticate with: make gws-login"
-  exit 1
+	error "Smoke test failed — credentials may be expired or APIs not enabled"
+	error "Re-authenticate with: make gws-login"
+	exit 1
 fi
 
 # --------------------------------------------------

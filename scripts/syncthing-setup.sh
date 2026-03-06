@@ -20,20 +20,20 @@ SYNCTHING_CONFIG="${HOME}/.local/state/syncthing/config.xml"
 step "Checking Syncthing status"
 
 if ! systemctl --user is-active syncthing.service &>/dev/null; then
-  info "Starting Syncthing..."
-  systemctl --user start syncthing.service
-  sleep 3
+	info "Starting Syncthing..."
+	systemctl --user start syncthing.service
+	sleep 3
 fi
 
 # Wait for config file to appear (Syncthing generates it on first run)
 attempts=0
-while [[ ! -f "${SYNCTHING_CONFIG}" ]]; do
-  sleep 2
-  attempts=$((attempts + 1))
-  if [[ ${attempts} -ge 15 ]]; then
-    error "Syncthing config not found after 30s. Check: systemctl --user status syncthing"
-    exit 1
-  fi
+while [[ ! -f ${SYNCTHING_CONFIG} ]]; do
+	sleep 2
+	attempts=$((attempts + 1))
+	if [[ ${attempts} -ge 15 ]]; then
+		error "Syncthing config not found after 30s. Check: systemctl --user status syncthing"
+		exit 1
+	fi
 done
 ok "Syncthing is running"
 
@@ -45,11 +45,11 @@ step "Server device info"
 
 DEVICE_ID=$(syncthing -device-id 2>/dev/null || syncthing cli show system 2>/dev/null | grep -oP '"myID"\s*:\s*"\K[^"]+' || echo "unknown")
 
-if [[ "${DEVICE_ID}" == "unknown" ]]; then
-  warn "Could not determine device ID automatically."
-  info "Try: syncthing -device-id"
+if [[ ${DEVICE_ID} == "unknown" ]]; then
+	warn "Could not determine device ID automatically."
+	info "Try: syncthing -device-id"
 else
-  ok "Device ID: ${DEVICE_ID}"
+	ok "Device ID: ${DEVICE_ID}"
 fi
 
 # ──────────────────────────────────────────────
@@ -59,10 +59,10 @@ fi
 step "Checking workspace folder configuration"
 
 if grep -q "${WORKSPACE}" "${SYNCTHING_CONFIG}" 2>/dev/null; then
-  ok "Workspace folder already configured in Syncthing"
+	ok "Workspace folder already configured in Syncthing"
 else
-  info "Workspace folder not yet shared in Syncthing."
-  info "Use the web UI to add it (see instructions below)."
+	info "Workspace folder not yet shared in Syncthing."
+	info "Use the web UI to add it (see instructions below)."
 fi
 
 # ──────────────────────────────────────────────

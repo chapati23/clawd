@@ -25,20 +25,20 @@ SSH_KEY="${TF_DIR}/id_ed25519"
 step "Checking prerequisites"
 
 if ! command -v node &>/dev/null; then
-  error "Node.js is not installed. Install it from https://nodejs.org"
-  exit 1
+	error "Node.js is not installed. Install it from https://nodejs.org"
+	exit 1
 fi
 ok "Node.js $(node --version)"
 
-if [[ ! -f "${SSH_KEY}" ]]; then
-  error "SSH key not found at ${SSH_KEY}. Run ./setup.sh first."
-  exit 1
+if [[ ! -f ${SSH_KEY} ]]; then
+	error "SSH key not found at ${SSH_KEY}. Run ./setup.sh first."
+	exit 1
 fi
 
 IP=$(terraform -chdir="${TF_DIR}" output -raw server_ip 2>/dev/null || true)
-if [[ -z "${IP}" ]]; then
-  error "Could not get server IP from Terraform state. Run ./setup.sh first."
-  exit 1
+if [[ -z ${IP} ]]; then
+	error "Could not get server IP from Terraform state. Run ./setup.sh first."
+	exit 1
 fi
 ok "Server IP: ${IP}"
 
@@ -49,8 +49,8 @@ ok "Server IP: ${IP}"
 step "Checking openclaw"
 
 if ! command -v openclaw &>/dev/null; then
-  info "openclaw not found — installing via npm"
-  npm install -g openclaw
+	info "openclaw not found — installing via npm"
+	npm install -g openclaw
 fi
 ok "openclaw $(openclaw --version 2>/dev/null || echo 'installed')"
 
@@ -61,12 +61,12 @@ ok "openclaw $(openclaw --version 2>/dev/null || echo 'installed')"
 step "Resolving gateway hostname from server"
 
 GATEWAY_HOST=$(ssh -i "${SSH_KEY}" molt@"${IP}" \
-  "tailscale status --json | python3 -c \
+	"tailscale status --json | python3 -c \
   'import sys,json; print(json.load(sys.stdin)[\"Self\"][\"DNSName\"].rstrip(\".\"))'")
 
-if [[ -z "${GATEWAY_HOST}" ]]; then
-  error "Could not resolve Tailscale hostname. Is Tailscale running on the server?"
-  exit 1
+if [[ -z ${GATEWAY_HOST} ]]; then
+	error "Could not resolve Tailscale hostname. Is Tailscale running on the server?"
+	exit 1
 fi
 ok "Gateway host: ${GATEWAY_HOST}"
 
@@ -80,17 +80,17 @@ ok "Gateway host: ${GATEWAY_HOST}"
 step "Checking DNS resolution for ${GATEWAY_HOST}"
 
 if ! python3 -c "import socket; socket.gethostbyname('${GATEWAY_HOST}')" &>/dev/null; then
-  warn "${GATEWAY_HOST} does not resolve — CLI Tailscale DNS not configured"
-  TAILSCALE_IP=$(ssh -i "${SSH_KEY}" molt@"${IP}" "tailscale ip -4")
-  if grep -qF "${GATEWAY_HOST}" /etc/hosts 2>/dev/null; then
-    warn "Stale entry already in /etc/hosts — skipping (check manually)"
-  else
-    info "Adding ${TAILSCALE_IP} ${GATEWAY_HOST} to /etc/hosts (requires sudo)"
-    echo "${TAILSCALE_IP} ${GATEWAY_HOST}" | sudo tee -a /etc/hosts >/dev/null
-    ok "Added to /etc/hosts"
-  fi
+	warn "${GATEWAY_HOST} does not resolve — CLI Tailscale DNS not configured"
+	TAILSCALE_IP=$(ssh -i "${SSH_KEY}" molt@"${IP}" "tailscale ip -4")
+	if grep -qF "${GATEWAY_HOST}" /etc/hosts 2>/dev/null; then
+		warn "Stale entry already in /etc/hosts — skipping (check manually)"
+	else
+		info "Adding ${TAILSCALE_IP} ${GATEWAY_HOST} to /etc/hosts (requires sudo)"
+		echo "${TAILSCALE_IP} ${GATEWAY_HOST}" | sudo tee -a /etc/hosts >/dev/null
+		ok "Added to /etc/hosts"
+	fi
 else
-  ok "${GATEWAY_HOST} resolves"
+	ok "${GATEWAY_HOST} resolves"
 fi
 
 # ==============================================================
@@ -104,11 +104,11 @@ DISPLAY_NAME=$(scutil --get ComputerName 2>/dev/null || hostname)
 
 # --force makes this idempotent: reinstalls cleanly if already present.
 openclaw node install \
-  --host "${GATEWAY_HOST}" \
-  --port 443 \
-  --tls \
-  --display-name "${DISPLAY_NAME}" \
-  --force
+	--host "${GATEWAY_HOST}" \
+	--port 443 \
+	--tls \
+	--display-name "${DISPLAY_NAME}" \
+	--force
 
 ok "Node host installed (display name: ${DISPLAY_NAME})"
 
@@ -126,17 +126,17 @@ step "Configuring local gateway for browser relay"
 # Get the Hetzner gateway token (used for both the remote connection and
 # the local relay authentication).
 GATEWAY_TOKEN=$(ssh -i "${SSH_KEY}" molt@"${IP}" \
-  "python3 -c \"import json; print(json.load(open('/home/molt/.openclaw/openclaw.json'))['gateway']['auth']['token'])\"")
+	"python3 -c \"import json; print(json.load(open('/home/molt/.openclaw/openclaw.json'))['gateway']['auth']['token'])\"")
 
-if [[ -z "${GATEWAY_TOKEN}" ]]; then
-  error "Could not retrieve gateway token from server."
-  exit 1
+if [[ -z ${GATEWAY_TOKEN} ]]; then
+	error "Could not retrieve gateway token from server."
+	exit 1
 fi
 ok "Gateway token retrieved"
 
 # Write local openclaw.json: mode=local + remote URL + auth token
 OC_CONFIG="${HOME}/.openclaw/openclaw.json"
-python3 - << PYEOF
+python3 - <<PYEOF
 import json, os
 path = os.path.expanduser('${OC_CONFIG}')
 cfg = {}
@@ -163,16 +163,16 @@ result = subprocess.run(['npm', 'root', '-g'], capture_output=True, text=True)
 print(result.stdout.strip() + '/openclaw/dist/index.js')
 " 2>/dev/null || echo "")
 
-if [[ -z "${OC_SCRIPT}" ]] || [[ ! -f "${OC_SCRIPT}" ]]; then
-  # Fallback: resolve via node require
-  OC_SCRIPT=$(node -e "console.log(require.resolve('openclaw/dist/index.js'))" 2>/dev/null || true)
+if [[ -z ${OC_SCRIPT} ]] || [[ ! -f ${OC_SCRIPT} ]]; then
+	# Fallback: resolve via node require
+	OC_SCRIPT=$(node -e "console.log(require.resolve('openclaw/dist/index.js'))" 2>/dev/null || true)
 fi
-if [[ -z "${OC_SCRIPT}" ]] || [[ ! -f "${OC_SCRIPT}" ]]; then
-  OC_SCRIPT=$(find "$(dirname "${NODE_BIN}")" -name "index.js" -path "*/openclaw/dist/*" 2>/dev/null | head -1 || true)
+if [[ -z ${OC_SCRIPT} ]] || [[ ! -f ${OC_SCRIPT} ]]; then
+	OC_SCRIPT=$(find "$(dirname "${NODE_BIN}")" -name "index.js" -path "*/openclaw/dist/*" 2>/dev/null | head -1 || true)
 fi
 
 GW_PLIST="${HOME}/Library/LaunchAgents/ai.openclaw.gateway.plist"
-cat > "${GW_PLIST}" << PLIST
+cat >"${GW_PLIST}" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -215,9 +215,9 @@ launchctl load "${GW_PLIST}"
 sleep 3
 
 if lsof -iTCP:18792 -sTCP:LISTEN &>/dev/null 2>&1; then
-  ok "Local gateway installed, relay listening on 127.0.0.1:18792"
+	ok "Local gateway installed, relay listening on 127.0.0.1:18792"
 else
-  warn "Local gateway installed but relay not yet visible — may take a few seconds"
+	warn "Local gateway installed but relay not yet visible — may take a few seconds"
 fi
 
 # ==============================================================

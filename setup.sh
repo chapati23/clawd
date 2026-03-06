@@ -15,13 +15,13 @@ USE_CREDENTIALS=false
 
 # pass path : terraform variable name
 TOKEN_MAP=(
-  "shared/telegram/bot-token:telegram_bot_token"
-  "shared/anthropic/api-key:anthropic_api_key"
-  "shared/gemini/api-key:gemini_api_key"
-  "shared/notion/api-key:notion_api_key"
-  "shared/perplexity/api-key:perplexity_api_key"
-  "shared/minimax/api-key:minimax_api_key"
-  "infrastructure/tailscale/auth-key:tailscale_auth_key"
+	"shared/telegram/bot-token:telegram_bot_token"
+	"shared/anthropic/api-key:anthropic_api_key"
+	"shared/gemini/api-key:gemini_api_key"
+	"shared/notion/api-key:notion_api_key"
+	"shared/perplexity/api-key:perplexity_api_key"
+	"shared/minimax/api-key:minimax_api_key"
+	"infrastructure/tailscale/auth-key:tailscale_auth_key"
 )
 
 # ==============================================================
@@ -31,22 +31,22 @@ TOKEN_MAP=(
 step "Checking prerequisites"
 
 if ! command -v terraform &>/dev/null; then
-  error "Terraform is not installed. Install it from https://developer.hashicorp.com/terraform/install"
-  exit 1
+	error "Terraform is not installed. Install it from https://developer.hashicorp.com/terraform/install"
+	exit 1
 fi
 
 tf_version="$(terraform version -json | python3 -c "import sys,json; print(json.load(sys.stdin)['terraform_version'])")"
 tf_major="$(echo "${tf_version}" | cut -d. -f1)"
 tf_minor="$(echo "${tf_version}" | cut -d. -f2)"
-if [[ "${tf_major}" -lt 1 ]] || { [[ "${tf_major}" -eq 1 ]] && [[ "${tf_minor}" -lt 5 ]]; }; then
-  error "Terraform >= 1.5 required (found ${tf_version})"
-  exit 1
+if [[ ${tf_major} -lt 1 ]] || { [[ ${tf_major} -eq 1 ]] && [[ ${tf_minor} -lt 5 ]]; }; then
+	error "Terraform >= 1.5 required (found ${tf_version})"
+	exit 1
 fi
 ok "Terraform ${tf_version}"
 
 if ! command -v ssh &>/dev/null; then
-  error "ssh is not installed"
-  exit 1
+	error "ssh is not installed"
+	exit 1
 fi
 ok "SSH available"
 
@@ -58,26 +58,26 @@ step "Checking credential management"
 
 # Detect if credential infrastructure is already set up
 if pass_initialized && command -v gpg &>/dev/null; then
-  USE_CREDENTIALS=true
-  ok "Credential store found (pass initialized)"
+	USE_CREDENTIALS=true
+	ok "Credential store found (pass initialized)"
 elif is_macos; then
-  # First-time setup: offer to bootstrap credential management
-  echo ""
-  info "No encrypted credential store detected."
-  info "Credential management uses pass + GPG + age to securely"
-  info "store and deploy API tokens and secrets."
-  echo ""
-  if confirm "Set up encrypted credential management? (recommended)" "Y"; then
-    USE_CREDENTIALS=true
+	# First-time setup: offer to bootstrap credential management
+	echo ""
+	info "No encrypted credential store detected."
+	info "Credential management uses pass + GPG + age to securely"
+	info "store and deploy API tokens and secrets."
+	echo ""
+	if confirm "Set up encrypted credential management? (recommended)" "Y"; then
+		USE_CREDENTIALS=true
 
-    # Run the one-time credential infrastructure bootstrap
-    "${SCRIPT_DIR}/scripts/credentials-init.sh"
-    echo ""
-  else
-    warn "Skipping credential management. Tokens will be stored in terraform.tfvars (plaintext, gitignored)."
-  fi
+		# Run the one-time credential infrastructure bootstrap
+		"${SCRIPT_DIR}/scripts/credentials-init.sh"
+		echo ""
+	else
+		warn "Skipping credential management. Tokens will be stored in terraform.tfvars (plaintext, gitignored)."
+	fi
 else
-  info "Credential management not configured. Using terraform.tfvars for tokens."
+	info "Credential management not configured. Using terraform.tfvars for tokens."
 fi
 
 # ==============================================================
@@ -86,25 +86,25 @@ fi
 
 # Determine bot name from existing tfvars or default
 BOT_NAME=""
-if [[ -f "${TFVARS}" ]]; then
-  BOT_NAME=$(tfvars_get "server_name" "${TFVARS}")
+if [[ -f ${TFVARS} ]]; then
+	BOT_NAME=$(tfvars_get "server_name" "${TFVARS}")
 fi
 BOT_NAME="${BOT_NAME:-giskard}"
 
 if ${USE_CREDENTIALS}; then
-  step "Checking bot credentials"
+	step "Checking bot credentials"
 
-  BOT_EMAIL="bot-${BOT_NAME}@openclaw.local"
+	BOT_EMAIL="bot-${BOT_NAME}@openclaw.local"
 
-  if gpg_key_exists "${BOT_EMAIL}"; then
-    ok "Bot GPG key exists for: ${BOT_NAME}"
-  else
-    info "No bot GPG key found for: ${BOT_NAME}"
-    info "Creating bot credentials..."
-    echo ""
-    "${SCRIPT_DIR}/scripts/add-bot.sh" "${BOT_NAME}" "yes"
-    echo ""
-  fi
+	if gpg_key_exists "${BOT_EMAIL}"; then
+		ok "Bot GPG key exists for: ${BOT_NAME}"
+	else
+		info "No bot GPG key found for: ${BOT_NAME}"
+		info "Creating bot credentials..."
+		echo ""
+		"${SCRIPT_DIR}/scripts/add-bot.sh" "${BOT_NAME}" "yes"
+		echo ""
+	fi
 fi
 
 # ==============================================================
@@ -114,41 +114,41 @@ fi
 step "Resolving API tokens"
 
 # --- Hetzner token ---
-HCLOUD_TOKEN="${HCLOUD_TOKEN:-${TF_VAR_hcloud_token:-}}"
+HCLOUD_TOKEN="${HCLOUD_TOKEN:-${TF_VAR_hcloud_token-}}"
 
 # Try pass first
-if [[ -z "${HCLOUD_TOKEN}" ]] && ${USE_CREDENTIALS}; then
-  HCLOUD_TOKEN=$(pass_get "infrastructure/hetzner/api-key" || true)
-  if [[ -n "${HCLOUD_TOKEN}" ]]; then
-    info "Hetzner token loaded from pass"
-  fi
+if [[ -z ${HCLOUD_TOKEN} ]] && ${USE_CREDENTIALS}; then
+	HCLOUD_TOKEN=$(pass_get "infrastructure/hetzner/api-key" || true)
+	if [[ -n ${HCLOUD_TOKEN} ]]; then
+		info "Hetzner token loaded from pass"
+	fi
 fi
 
 # Try existing tfvars
-if [[ -z "${HCLOUD_TOKEN}" ]] && [[ -f "${TFVARS}" ]]; then
-  HCLOUD_TOKEN=$(tfvars_get "hcloud_token" "${TFVARS}")
-  if [[ -n "${HCLOUD_TOKEN}" ]]; then
-    info "Hetzner token loaded from terraform.tfvars"
-  fi
+if [[ -z ${HCLOUD_TOKEN} ]] && [[ -f ${TFVARS} ]]; then
+	HCLOUD_TOKEN=$(tfvars_get "hcloud_token" "${TFVARS}")
+	if [[ -n ${HCLOUD_TOKEN} ]]; then
+		info "Hetzner token loaded from terraform.tfvars"
+	fi
 fi
 
 # Prompt as last resort
-if [[ -z "${HCLOUD_TOKEN}" ]]; then
-  info "No Hetzner token found in pass, env vars, or terraform.tfvars."
-  HCLOUD_TOKEN=$(prompt_secret "Enter your Hetzner Cloud API token")
-  if [[ -z "${HCLOUD_TOKEN}" ]]; then
-    error "No token provided. Aborting."
-    exit 1
-  fi
+if [[ -z ${HCLOUD_TOKEN} ]]; then
+	info "No Hetzner token found in pass, env vars, or terraform.tfvars."
+	HCLOUD_TOKEN=$(prompt_secret "Enter your Hetzner Cloud API token")
+	if [[ -z ${HCLOUD_TOKEN} ]]; then
+		error "No token provided. Aborting."
+		exit 1
+	fi
 
-  # Store in pass if available
-  if ${USE_CREDENTIALS}; then
-    if echo "${HCLOUD_TOKEN}" | pass insert -f infrastructure/hetzner/api-key 2>&1; then
-      ok "Hetzner token stored in pass"
-    else
-      warn "Could not store Hetzner token in pass (continuing with env var)"
-    fi
-  fi
+	# Store in pass if available
+	if ${USE_CREDENTIALS}; then
+		if echo "${HCLOUD_TOKEN}" | pass insert -f infrastructure/hetzner/api-key 2>&1; then
+			ok "Hetzner token stored in pass"
+		else
+			warn "Could not store Hetzner token in pass (continuing with env var)"
+		fi
+	fi
 fi
 
 export TF_VAR_hcloud_token="${HCLOUD_TOKEN}"
@@ -156,31 +156,31 @@ ok "Hetzner token resolved"
 
 # --- Terraform Cloud token (CLI auth, not a TF variable) ---
 if ${USE_CREDENTIALS}; then
-  TFC_TOKEN=$(pass_get "infrastructure/terraform-cloud/api-token" || true)
-  if [[ -n "${TFC_TOKEN}" ]]; then
-    export TF_TOKEN_app_terraform_io="${TFC_TOKEN}"
-    ok "Terraform Cloud token loaded from pass"
-  fi
+	TFC_TOKEN=$(pass_get "infrastructure/terraform-cloud/api-token" || true)
+	if [[ -n ${TFC_TOKEN} ]]; then
+		export TF_TOKEN_app_terraform_io="${TFC_TOKEN}"
+		ok "Terraform Cloud token loaded from pass"
+	fi
 fi
 
 # --- Optional tokens (only resolve from pass to env vars) ---
 if ${USE_CREDENTIALS}; then
-  for token_pair in "${TOKEN_MAP[@]}"; do
-    pass_path="${token_pair%%:*}"
-    tf_var="${token_pair##*:}"
-    env_var="TF_VAR_${tf_var}"
+	for token_pair in "${TOKEN_MAP[@]}"; do
+		pass_path="${token_pair%%:*}"
+		tf_var="${token_pair##*:}"
+		env_var="TF_VAR_${tf_var}"
 
-    # Skip if already set via env
-    if [[ -n "${!env_var:-}" ]]; then
-      continue
-    fi
+		# Skip if already set via env
+		if [[ -n ${!env_var-} ]]; then
+			continue
+		fi
 
-    value=$(pass_get "${pass_path}" || true)
-    if [[ -n "${value}" ]]; then
-      export "${env_var}=${value}"
-    fi
-  done
-  ok "Optional tokens loaded from pass"
+		value=$(pass_get "${pass_path}" || true)
+		if [[ -n ${value} ]]; then
+			export "${env_var}=${value}"
+		fi
+	done
+	ok "Optional tokens loaded from pass"
 fi
 
 # ==============================================================
@@ -189,28 +189,28 @@ fi
 
 step "Checking terraform.tfvars"
 
-if [[ -f "${TFVARS}" ]]; then
-  info "Using existing ${TFVARS}"
+if [[ -f ${TFVARS} ]]; then
+	info "Using existing ${TFVARS}"
 
-  # Safely update tokens from pass (targeted per-key replacement, backup first)
-  if ${USE_CREDENTIALS}; then
-    tfvars_update "hcloud_token" "${HCLOUD_TOKEN}" "${TFVARS}"
+	# Safely update tokens from pass (targeted per-key replacement, backup first)
+	if ${USE_CREDENTIALS}; then
+		tfvars_update "hcloud_token" "${HCLOUD_TOKEN}" "${TFVARS}"
 
-    # Update optional tokens if they exist in both pass and tfvars
-    for token_pair in "${TOKEN_MAP[@]}"; do
-      pass_path="${token_pair%%:*}"
-      tf_var="${token_pair##*:}"
-      value=$(pass_get "${pass_path}" || true)
+		# Update optional tokens if they exist in both pass and tfvars
+		for token_pair in "${TOKEN_MAP[@]}"; do
+			pass_path="${token_pair%%:*}"
+			tf_var="${token_pair##*:}"
+			value=$(pass_get "${pass_path}" || true)
 
-      if [[ -n "${value}" ]]; then
-        tfvars_update "${tf_var}" "${value}" "${TFVARS}"
-      fi
-    done
-    ok "terraform.tfvars updated from pass (backup: terraform.tfvars.bak)"
-  fi
+			if [[ -n ${value} ]]; then
+				tfvars_update "${tf_var}" "${value}" "${TFVARS}"
+			fi
+		done
+		ok "terraform.tfvars updated from pass (backup: terraform.tfvars.bak)"
+	fi
 else
-  info "Generating ${TFVARS}"
-  cat >"${TFVARS}" <<EOF
+	info "Generating ${TFVARS}"
+	cat >"${TFVARS}" <<EOF
 # Hetzner API token — alternatively set via:  export TF_VAR_hcloud_token="..."
 hcloud_token = "${HCLOUD_TOKEN}"
 
@@ -219,17 +219,17 @@ location    = "nbg1"
 server_type = "cpx32"
 
 # API tokens for OpenClaw bootstrapping (fill in to auto-configure on boot)
-telegram_bot_token = "${TF_VAR_telegram_bot_token:-}"
-anthropic_api_key  = "${TF_VAR_anthropic_api_key:-}"
-gemini_api_key     = "${TF_VAR_gemini_api_key:-}"
-notion_api_key     = "${TF_VAR_notion_api_key:-}"
-perplexity_api_key = "${TF_VAR_perplexity_api_key:-}"
-minimax_api_key    = "${TF_VAR_minimax_api_key:-}"
+telegram_bot_token = "${TF_VAR_telegram_bot_token-}"
+anthropic_api_key  = "${TF_VAR_anthropic_api_key-}"
+gemini_api_key     = "${TF_VAR_gemini_api_key-}"
+notion_api_key     = "${TF_VAR_notion_api_key-}"
+perplexity_api_key = "${TF_VAR_perplexity_api_key-}"
+minimax_api_key    = "${TF_VAR_minimax_api_key-}"
 
 # Tailscale auth key for auto-joining the tailnet on boot
-tailscale_auth_key = "${TF_VAR_tailscale_auth_key:-}"
+tailscale_auth_key = "${TF_VAR_tailscale_auth_key-}"
 EOF
-  ok "Created ${TFVARS}"
+	ok "Created ${TFVARS}"
 fi
 
 # ==============================================================
@@ -239,9 +239,9 @@ fi
 step "Initializing Terraform"
 
 if [[ -d "${TF_DIR}/.terraform" ]]; then
-  info "Already initialized, skipping"
+	info "Already initialized, skipping"
 else
-  terraform -chdir="${TF_DIR}" init -input=false
+	terraform -chdir="${TF_DIR}" init -input=false
 fi
 ok "Terraform initialized"
 
@@ -287,26 +287,26 @@ interval=10
 # Wait for SSH to become available
 info "Waiting for SSH..."
 while ! ${SSH_CMD} "true" &>/dev/null; do
-  sleep 5
-  elapsed=$((elapsed + 5))
-  if [[ ${elapsed} -ge ${CLOUD_INIT_TIMEOUT} ]]; then
-    error "Timed out waiting for SSH after ${CLOUD_INIT_TIMEOUT}s"
-    exit 1
-  fi
+	sleep 5
+	elapsed=$((elapsed + 5))
+	if [[ ${elapsed} -ge ${CLOUD_INIT_TIMEOUT} ]]; then
+		error "Timed out waiting for SSH after ${CLOUD_INIT_TIMEOUT}s"
+		exit 1
+	fi
 done
 ok "SSH is up"
 
 # Wait for cloud-init sentinel
 info "Waiting for cloud-init (Node.js, OpenClaw, hardening)..."
 while ! ${SSH_CMD} "test -f ~/.openclaw-ready" &>/dev/null; do
-  sleep "${interval}"
-  elapsed=$((elapsed + interval))
-  if [[ ${elapsed} -ge ${CLOUD_INIT_TIMEOUT} ]]; then
-    error "Cloud-init timed out after ${CLOUD_INIT_TIMEOUT}s"
-    error "Check logs: ${SSH_CMD} \"sudo tail -50 /var/log/cloud-init-output.log\""
-    exit 1
-  fi
-  printf "."
+	sleep "${interval}"
+	elapsed=$((elapsed + interval))
+	if [[ ${elapsed} -ge ${CLOUD_INIT_TIMEOUT} ]]; then
+		error "Cloud-init timed out after ${CLOUD_INIT_TIMEOUT}s"
+		error "Check logs: ${SSH_CMD} \"sudo tail -50 /var/log/cloud-init-output.log\""
+		exit 1
+	fi
+	printf "."
 done
 echo
 ok "Cloud-init complete"
@@ -316,78 +316,78 @@ ok "Cloud-init complete"
 # ==============================================================
 
 if ${USE_CREDENTIALS}; then
-  step "Deploying credentials to server"
+	step "Deploying credentials to server"
 
-  BOT_KEY_AGE="${HOME}/bot-${BOT_NAME}-key.age"
-  DEPLOY_KEY="${HOME}/bot-${BOT_NAME}-deploy-key"
-  AGE_KEY_FILE="${HOME}/.age-recovery-key.txt"
+	BOT_KEY_AGE="${HOME}/bot-${BOT_NAME}-key.age"
+	DEPLOY_KEY="${HOME}/bot-${BOT_NAME}-deploy-key"
+	AGE_KEY_FILE="${HOME}/.age-recovery-key.txt"
 
-  # Verify deploy materials exist
-  DEPLOY_READY=true
-  for f in "${BOT_KEY_AGE}" "${DEPLOY_KEY}" "${AGE_KEY_FILE}"; do
-    if [[ ! -f "${f}" ]]; then
-      warn "Missing deploy material: ${f}"
-      DEPLOY_READY=false
-    fi
-  done
+	# Verify deploy materials exist
+	DEPLOY_READY=true
+	for f in "${BOT_KEY_AGE}" "${DEPLOY_KEY}" "${AGE_KEY_FILE}"; do
+		if [[ ! -f ${f} ]]; then
+			warn "Missing deploy material: ${f}"
+			DEPLOY_READY=false
+		fi
+	done
 
-  if ${DEPLOY_READY}; then
-    # Check if credentials are already set up on the server
-    if ${SSH_CMD} "test -d ~/.password-store/.git" &>/dev/null; then
-      info "Credentials already deployed on server, pulling latest..."
-      ${SSH_CMD} "cd ~/.password-store && git pull --ff-only" 2>/dev/null || true
-      ok "Credential store updated on server"
-    else
-      # Verify integrity of age-encrypted bundle locally
-      if [[ -f "${BOT_KEY_AGE}.sha256" ]]; then
-        EXPECTED_SHA256=$(awk '{print $1}' "${BOT_KEY_AGE}.sha256")
-        ACTUAL_SHA256=$(shasum -a 256 "${BOT_KEY_AGE}" | awk '{print $1}')
-        if [[ "${ACTUAL_SHA256}" != "${EXPECTED_SHA256}" ]]; then
-          error "SHA-256 mismatch on ${BOT_KEY_AGE} — backup may be corrupted or tampered with."
-          exit 1
-        fi
-        ok "Bundle integrity verified (SHA-256)"
-      fi
+	if ${DEPLOY_READY}; then
+		# Check if credentials are already set up on the server
+		if ${SSH_CMD} "test -d ~/.password-store/.git" &>/dev/null; then
+			info "Credentials already deployed on server, pulling latest..."
+			${SSH_CMD} "cd ~/.password-store && git pull --ff-only" 2>/dev/null || true
+			ok "Credential store updated on server"
+		else
+			# Verify integrity of age-encrypted bundle locally
+			if [[ -f "${BOT_KEY_AGE}.sha256" ]]; then
+				EXPECTED_SHA256=$(awk '{print $1}' "${BOT_KEY_AGE}.sha256")
+				ACTUAL_SHA256=$(shasum -a 256 "${BOT_KEY_AGE}" | awk '{print $1}')
+				if [[ ${ACTUAL_SHA256} != "${EXPECTED_SHA256}" ]]; then
+					error "SHA-256 mismatch on ${BOT_KEY_AGE} — backup may be corrupted or tampered with."
+					exit 1
+				fi
+				ok "Bundle integrity verified (SHA-256)"
+			fi
 
-      # Decrypt age bundle locally — age identity never leaves this machine
-      DECRYPTED_KEY="$(mktemp)"
-      age -d -i "${AGE_KEY_FILE}" "${BOT_KEY_AGE}" > "${DECRYPTED_KEY}"
+			# Decrypt age bundle locally — age identity never leaves this machine
+			DECRYPTED_KEY="$(mktemp)"
+			age -d -i "${AGE_KEY_FILE}" "${BOT_KEY_AGE}" >"${DECRYPTED_KEY}"
 
-      # Determine pass repo URL
-      PASS_REPO=$(git -C "${HOME}/.password-store" remote get-url origin 2>/dev/null || true)
+			# Determine pass repo URL
+			PASS_REPO=$(git -C "${HOME}/.password-store" remote get-url origin 2>/dev/null || true)
 
-      # Clean up stale deploy materials from previous runs
-      ${SSH_CMD} "rm -f ~/credentials-server-setup.sh ~/bot-*-key.asc ~/bot-*-deploy-key" 2>/dev/null || true
+			# Clean up stale deploy materials from previous runs
+			${SSH_CMD} "rm -f ~/credentials-server-setup.sh ~/bot-*-key.asc ~/bot-*-deploy-key" 2>/dev/null || true
 
-      info "Copying deploy materials to server..."
-      ${SCP_CMD} "${DECRYPTED_KEY}" "molt@${SERVER_IP}:~/bot-key-bundle.asc"
-      ${SCP_CMD} \
-        "${SCRIPT_DIR}/scripts/credentials-server-setup.sh" \
-        "${DEPLOY_KEY}" \
-        "molt@${SERVER_IP}:~/"
+			info "Copying deploy materials to server..."
+			${SCP_CMD} "${DECRYPTED_KEY}" "molt@${SERVER_IP}:~/bot-key-bundle.asc"
+			${SCP_CMD} \
+				"${SCRIPT_DIR}/scripts/credentials-server-setup.sh" \
+				"${DEPLOY_KEY}" \
+				"molt@${SERVER_IP}:~/"
 
-      info "Running credential setup on server..."
-      ${SSH_CMD} "PASS_REPO='${PASS_REPO}' bash ~/credentials-server-setup.sh '${BOT_NAME}' 'bot-key-bundle.asc' 'bot-${BOT_NAME}-deploy-key'"
+			info "Running credential setup on server..."
+			${SSH_CMD} "PASS_REPO='${PASS_REPO}' bash ~/credentials-server-setup.sh '${BOT_NAME}' 'bot-key-bundle.asc' 'bot-${BOT_NAME}-deploy-key'"
 
-      # Clean up: setup script on server, decrypted key locally
-      ${SSH_CMD} "rm -f ~/credentials-server-setup.sh" 2>/dev/null || true
-      rm -f "${DECRYPTED_KEY}"
-      DECRYPTED_KEY=""
+			# Clean up: setup script on server, decrypted key locally
+			${SSH_CMD} "rm -f ~/credentials-server-setup.sh" 2>/dev/null || true
+			rm -f "${DECRYPTED_KEY}"
+			DECRYPTED_KEY=""
 
-      ok "Credentials deployed to server"
-    fi
+			ok "Credentials deployed to server"
+		fi
 
-    # Deploy backup cron job
-    info "Deploying credential backup cron..."
-    ${SCP_CMD} "${SCRIPT_DIR}/scripts/credentials-backup.sh" "molt@${SERVER_IP}:~/"
-    ${SSH_CMD} "sudo mkdir -p /opt/scripts && sudo mv ~/credentials-backup.sh /opt/scripts/ && sudo chmod 700 /opt/scripts/credentials-backup.sh"
-    # Add cron job if not already present
-    ${SSH_CMD} "(crontab -l 2>/dev/null | grep -q 'credentials-backup' || (crontab -l 2>/dev/null; echo '0 3 * * * /opt/scripts/credentials-backup.sh') | crontab -)" 2>/dev/null || true
-    ok "Backup cron job deployed (daily at 03:00)"
-  else
-    warn "Skipping credential deployment (missing deploy materials)."
-    warn "Run ./scripts/add-bot.sh ${BOT_NAME} to generate them."
-  fi
+		# Deploy backup cron job
+		info "Deploying credential backup cron..."
+		${SCP_CMD} "${SCRIPT_DIR}/scripts/credentials-backup.sh" "molt@${SERVER_IP}:~/"
+		${SSH_CMD} "sudo mkdir -p /opt/scripts && sudo mv ~/credentials-backup.sh /opt/scripts/ && sudo chmod 700 /opt/scripts/credentials-backup.sh"
+		# Add cron job if not already present
+		${SSH_CMD} "(crontab -l 2>/dev/null | grep -q 'credentials-backup' || (crontab -l 2>/dev/null; echo '0 3 * * * /opt/scripts/credentials-backup.sh') | crontab -)" 2>/dev/null || true
+		ok "Backup cron job deployed (daily at 03:00)"
+	else
+		warn "Skipping credential deployment (missing deploy materials)."
+		warn "Run ./scripts/add-bot.sh ${BOT_NAME} to generate them."
+	fi
 fi
 
 # ==============================================================
@@ -408,54 +408,82 @@ verify_output="$(${SSH_CMD} "
 
 failed=0
 while IFS=: read -r key value; do
-  case "${key}" in
-    Node)
-      if [[ "${value}" == v22.* ]]; then ok "Node.js ${value}"; else error "Node.js ${value} (expected v22.x)"; failed=1; fi ;;
-    npm)
-      if [[ -n "${value}" ]]; then ok "npm ${value}"; else error "npm not found"; failed=1; fi ;;
-    OpenClaw)
-      if [[ -n "${value}" ]]; then ok "OpenClaw ${value}"; else error "OpenClaw not found"; failed=1; fi ;;
-    fail2ban)
-      if [[ "${value}" == "active" ]]; then ok "fail2ban active"; else error "fail2ban: ${value}"; failed=1; fi ;;
-    swap)
-      if [[ "${value%MB}" -gt 0 ]]; then ok "Swap ${value}"; else error "No swap configured"; failed=1; fi ;;
-    root_login)
-      if [[ "${value}" == "no" ]]; then ok "Root login disabled"; else error "Root login: ${value}"; failed=1; fi ;;
-    password_auth)
-      if [[ "${value}" == "no" ]]; then ok "Password auth disabled"; else error "Password auth: ${value}"; failed=1; fi ;;
-    *) ;;
-  esac
+	case "${key}" in
+	Node)
+		if [[ ${value} == v22.* ]]; then ok "Node.js ${value}"; else
+			error "Node.js ${value} (expected v22.x)"
+			failed=1
+		fi
+		;;
+	npm)
+		if [[ -n ${value} ]]; then ok "npm ${value}"; else
+			error "npm not found"
+			failed=1
+		fi
+		;;
+	OpenClaw)
+		if [[ -n ${value} ]]; then ok "OpenClaw ${value}"; else
+			error "OpenClaw not found"
+			failed=1
+		fi
+		;;
+	fail2ban)
+		if [[ ${value} == "active" ]]; then ok "fail2ban active"; else
+			error "fail2ban: ${value}"
+			failed=1
+		fi
+		;;
+	swap)
+		if [[ ${value%MB} -gt 0 ]]; then ok "Swap ${value}"; else
+			error "No swap configured"
+			failed=1
+		fi
+		;;
+	root_login)
+		if [[ ${value} == "no" ]]; then ok "Root login disabled"; else
+			error "Root login: ${value}"
+			failed=1
+		fi
+		;;
+	password_auth)
+		if [[ ${value} == "no" ]]; then ok "Password auth disabled"; else
+			error "Password auth: ${value}"
+			failed=1
+		fi
+		;;
+	*) ;;
+	esac
 done <<<"${verify_output}"
 
 # Verify credential access on server
 if ${USE_CREDENTIALS}; then
-  if ${SSH_CMD} "test -d ~/.password-store/.git" &>/dev/null; then
-    cred_count=$(${SSH_CMD} "find ~/.password-store -name '*.gpg' 2>/dev/null | wc -l" 2>/dev/null || echo "0")
-    if [[ "${cred_count}" -gt 0 ]]; then
-      ok "Credential store: ${cred_count} entries accessible"
-    else
-      warn "Credential store cloned but no entries found"
-    fi
-  fi
+	if ${SSH_CMD} "test -d ~/.password-store/.git" &>/dev/null; then
+		cred_count=$(${SSH_CMD} "find ~/.password-store -name '*.gpg' 2>/dev/null | wc -l" 2>/dev/null || echo "0")
+		if [[ ${cred_count} -gt 0 ]]; then
+			ok "Credential store: ${cred_count} entries accessible"
+		else
+			warn "Credential store cloned but no entries found"
+		fi
+	fi
 fi
 
 # Verify Tailscale
 TAILSCALE_IP=""
 TAILSCALE_FQDN=""
 tailscale_status=$(${SSH_CMD} "tailscale status --json 2>/dev/null | python3 -c \"import sys,json; print(json.load(sys.stdin).get('BackendState',''))\"" 2>/dev/null || echo "")
-if [[ "${tailscale_status}" == "Running" ]]; then
-  TAILSCALE_IP=$(${SSH_CMD} "tailscale ip -4" 2>/dev/null || echo "")
-  TAILSCALE_FQDN=$(${SSH_CMD} "tailscale status --json 2>/dev/null | python3 -c \"import sys,json; print(json.load(sys.stdin)['Self']['DNSName'].rstrip('.'))\"" 2>/dev/null || echo "")
-  ok "Tailscale running (${TAILSCALE_IP}, ${TAILSCALE_FQDN})"
-elif [[ -n "${TF_VAR_tailscale_auth_key:-}" ]]; then
-  warn "Tailscale auth key provided but not running"
+if [[ ${tailscale_status} == "Running" ]]; then
+	TAILSCALE_IP=$(${SSH_CMD} "tailscale ip -4" 2>/dev/null || echo "")
+	TAILSCALE_FQDN=$(${SSH_CMD} "tailscale status --json 2>/dev/null | python3 -c \"import sys,json; print(json.load(sys.stdin)['Self']['DNSName'].rstrip('.'))\"" 2>/dev/null || echo "")
+	ok "Tailscale running (${TAILSCALE_IP}, ${TAILSCALE_FQDN})"
+elif [[ -n ${TF_VAR_tailscale_auth_key-} ]]; then
+	warn "Tailscale auth key provided but not running"
 else
-  info "Tailscale not configured (no auth key)"
+	info "Tailscale not configured (no auth key)"
 fi
 
 if [[ ${failed} -ne 0 ]]; then
-  error "Some checks failed. Review output above."
-  exit 1
+	error "Some checks failed. Review output above."
+	exit 1
 fi
 
 # ==============================================================
@@ -466,7 +494,7 @@ step "Registering SSH host key"
 
 # Use the host key verified during this session (rather than a fresh scan)
 ssh-keygen -R "${SERVER_IP}" &>/dev/null || true
-cat "${SETUP_KNOWN_HOSTS}" >> ~/.ssh/known_hosts
+cat "${SETUP_KNOWN_HOSTS}" >>~/.ssh/known_hosts
 ok "Host key added to ~/.ssh/known_hosts"
 
 # ==============================================================
@@ -474,12 +502,12 @@ ok "Host key added to ~/.ssh/known_hosts"
 # ==============================================================
 
 if ${USE_CREDENTIALS} && pass_entry_exists "shared/gws/mentolabs/credentials"; then
-  step "Deploying GWS credentials to server"
-  ${SCP_CMD} "${SCRIPT_DIR}/scripts/gws-setup.sh" "molt@${SERVER_IP}:~/"
-  ${SSH_CMD} "bash ~/gws-setup.sh && rm -f ~/gws-setup.sh"
-  ok "GWS credentials deployed"
+	step "Deploying GWS credentials to server"
+	${SCP_CMD} "${SCRIPT_DIR}/scripts/gws-setup.sh" "molt@${SERVER_IP}:~/"
+	${SSH_CMD} "bash ~/gws-setup.sh && rm -f ~/gws-setup.sh"
+	ok "GWS credentials deployed"
 else
-  info "Skipping GWS setup (run 'make gws-auth-init' on Mac first, then re-run setup)"
+	info "Skipping GWS setup (run 'make gws-auth-init' on Mac first, then re-run setup)"
 fi
 
 # ==============================================================
@@ -496,21 +524,21 @@ printf '  SSH:        %bssh -i terraform/id_ed25519 molt@%s%b\n' "${BOLD}" "${SE
 printf '  Shortcut:   %bmake ssh%b\n\n' "${BOLD}" "${NC}"
 
 if ${USE_CREDENTIALS}; then
-  printf '  %bCredentials:%b Deployed via pass (encrypted)\n' "${BOLD}" "${NC}"
-  printf '  %bBackup cron:%b Daily at 03:00 UTC\n\n' "${BOLD}" "${NC}"
+	printf '  %bCredentials:%b Deployed via pass (encrypted)\n' "${BOLD}" "${NC}"
+	printf '  %bBackup cron:%b Daily at 03:00 UTC\n\n' "${BOLD}" "${NC}"
 fi
 
-if [[ -n "${TAILSCALE_IP}" ]]; then
-  printf '  %bTailscale:%b  %s (connected)\n' "${BOLD}" "${NC}" "${TAILSCALE_IP}"
-  if [[ -n "${TAILSCALE_FQDN}" ]]; then
-    printf '  %bDashboard:%b  https://%s/chat?session=main\n\n' "${BOLD}" "${NC}" "${TAILSCALE_FQDN}"
-  fi
+if [[ -n ${TAILSCALE_IP} ]]; then
+	printf '  %bTailscale:%b  %s (connected)\n' "${BOLD}" "${NC}" "${TAILSCALE_IP}"
+	if [[ -n ${TAILSCALE_FQDN} ]]; then
+		printf '  %bDashboard:%b  https://%s/chat?session=main\n\n' "${BOLD}" "${NC}" "${TAILSCALE_FQDN}"
+	fi
 fi
 
 printf '  %bSyncthing:%b Running as user service (port 22000/TCP, 21027/UDP)\n' "${BOLD}" "${NC}"
 SYNCTHING_ID=$(${SSH_CMD} "syncthing -device-id 2>/dev/null" 2>/dev/null || echo "")
-if [[ -n "${SYNCTHING_ID}" ]]; then
-  printf '  %bDevice ID:%b  %s\n' "${BOLD}" "${NC}" "${SYNCTHING_ID}"
+if [[ -n ${SYNCTHING_ID} ]]; then
+	printf '  %bDevice ID:%b  %s\n' "${BOLD}" "${NC}" "${SYNCTHING_ID}"
 fi
 printf '  %bWeb UI:%b     ssh -L 8384:127.0.0.1:8384 (then http://127.0.0.1:8384)\n\n' "${BOLD}" "${NC}"
 
