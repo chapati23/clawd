@@ -43,8 +43,17 @@ GWS_SKILLS=(drive gmail calendar sheets docs chat slides)
 step "GWS setup"
 
 # --------------------------------------------------
-# Preflight: pass entries must exist
+# Preflight: sync pass store, then check entries exist
 # --------------------------------------------------
+
+if [[ -d "${HOME}/.password-store/.git" ]]; then
+  info "Syncing credential store..."
+  if git -C "${HOME}/.password-store" pull --ff-only &>/dev/null; then
+    ok "Credential store up to date"
+  else
+    warn "Could not pull credential store — continuing with local state"
+  fi
+fi
 
 if ! pass_entry_exists "${PASS_CREDENTIALS}" || ! pass_entry_exists "${PASS_CLIENT_SECRET}"; then
   warn "GWS credentials not found in pass."
