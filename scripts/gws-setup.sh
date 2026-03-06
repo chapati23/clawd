@@ -34,6 +34,9 @@ else
   pass_entry_exists() { [[ -f "${HOME}/.password-store/${1}.gpg" ]]; }
 fi
 
+# npm-global bin may not be in PATH for non-login SSH sessions
+[[ -d "${HOME}/.npm-global/bin" ]] && export PATH="${HOME}/.npm-global/bin:${PATH}"
+
 GWS_CONFIG_DIR="${HOME}/.config/gws"
 PASS_CREDENTIALS="shared/gws/mentolabs/credentials"
 PASS_CLIENT_SECRET="shared/gws/mentolabs/client-secret"
