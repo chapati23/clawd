@@ -160,21 +160,16 @@ info "Storing client secret..."
 pass insert -m -f "${PASS_CLIENT_SECRET}" < "${CLIENT_SECRET_FILE}" >/dev/null
 ok "Stored: ${PASS_CLIENT_SECRET}"
 
-# Commit and push
+# Commit any uncommitted changes, then push (pass insert auto-commits but does not push)
 info "Pushing to credential repo..."
-if git -C "${HOME}/.password-store" add -A &>/dev/null; then
-  commit_msg="GWS credentials (mentolabs)"
-  if git -C "${HOME}/.password-store" diff --cached --quiet 2>/dev/null; then
-    info "Credential repo already up to date"
-  else
-    if git -C "${HOME}/.password-store" commit -m "${commit_msg}" &>/dev/null; then
-      if git -C "${HOME}/.password-store" push &>/dev/null; then
-        ok "Pushed to credential repo"
-      else
-        warn "Commit succeeded but push failed — run: cd ~/.password-store && git push"
-      fi
-    fi
-  fi
+git -C "${HOME}/.password-store" add -A &>/dev/null || true
+if ! git -C "${HOME}/.password-store" diff --cached --quiet 2>/dev/null; then
+  git -C "${HOME}/.password-store" commit -m "GWS credentials (mentolabs)" &>/dev/null || true
+fi
+if git -C "${HOME}/.password-store" push &>/dev/null; then
+  ok "Pushed to credential repo"
+else
+  warn "Push failed — run: cd ~/.password-store && git push"
 fi
 
 # --------------------------------------------------
