@@ -27,6 +27,8 @@ scripts/
 ├── credentials-backup.sh   # Cron (daily 03:00): tarball + push + prune 90d
 ├── credentials-rotate.sh   # Day-2: GPG key rotation (master or per-bot)
 ├── gcp-setup.sh            # GCP read-only SA bootstrap for agents
+├── gws-auth-init.sh        # One-time Mac setup: OAuth login for GWS, export creds to pass
+├── gws-setup.sh            # Idempotent: pull GWS creds from pass, install gws + OpenClaw skills
 └── mac-node-setup.sh       # Mac browser node: install local gateway + node host + Chrome extension relay
 
 terraform/
@@ -39,7 +41,7 @@ terraform/
 checkov-policies/           # Custom Checkov YAML policies for Hetzner resources
 ```
 
-### How setup.sh works (12 phases)
+### How setup.sh works (13 phases)
 
 1. Check prerequisites (Terraform, SSH)
 2. Detect/bootstrap credential infrastructure (pass + GPG + age)
@@ -53,12 +55,16 @@ checkov-policies/           # Custom Checkov YAML policies for Hetzner resources
 10. Deploy credentials to server (SCP keys → import GPG → clone pass store)
 11. Verification (Node, npm, OpenClaw, fail2ban, swap, SSH hardening, credential access)
 12. Register SSH host key
+13. Deploy GWS credentials to server (if `shared/gws/mentolabs/credentials` exists in pass)
 
 ### Credential store layout
 
 ```
 ~/.password-store/
   shared/              # Master key + ALL bot keys (API keys shared across bots)
+    gws/mentolabs/
+      credentials      # GWS OAuth token (refresh token + quota_project_id)
+      client-secret    # GWS OAuth client secret (needed for token refresh)
   bot-<name>/          # Master key + that bot's key ONLY (bot-specific creds)
   infrastructure/      # Master key ONLY (Hetzner token — no bot access)
 ```
@@ -100,6 +106,12 @@ make mac-gateway-restart      # Restart Mac local gateway (relay at :18792)
 make add-bot NAME=mybot       # Create new bot credentials
 make rotate-key TARGET=master # Rotate GPG key (master or bot name)
 make cred-status              # Show credential store status on server
+
+# Google Workspace CLI
+make gws-auth-init                     # One-time Mac setup: OAuth login + export creds to pass
+make gws-server-setup                  # Deploy GWS creds from pass to the server (idempotent)
+make gws-setup                         # Deploy GWS creds from pass to this machine (idempotent)
+make gws-login                         # Re-authenticate after token expiry (Mac only)
 
 # Scripts (run from repo root)
 ./scripts/credentials-init.sh          # One-time credential bootstrap (MacBook)
@@ -288,6 +300,50 @@ make mac-node-token       # print gateway token (re-paste if extension loses aut
 3. `lsof -i :18792` — relay must be listening
 4. If stale: `make mac-gateway-restart` to bring it back up
 
+### Setting up Google Workspace CLI (gws)
+
+`gws` gives agents access to Drive, Gmail, Calendar, Sheets, Docs, Chat, Slides, and more as `philip.paetz@mentolabs.xyz`.
+
+**One-time Mac setup (do this first):**
+
+```bash
+# Prerequisites:
+# 1. Create OAuth consent screen (Internal, one-time):
+#    https://console.cloud.google.com/apis/credentials/consent?project=giskard-bot
+# 2. Create OAuth client ID (Desktop app) and save JSON to ~/.config/gws/client_secret.json:
+#    https://console.cloud.google.com/apis/credentials?project=giskard-bot
+make gws-auth-init   # installs gws, enables APIs, OAuth login, exports creds to pass
+```
+
+**Deploy to server (after auth-init, or after reprovisioning):**
+
+```bash
+make gws-server-setup   # pulls creds from pass, installs gws + OpenClaw skills
+```
+
+Phase 13 of `setup.sh` does this automatically if `shared/gws/mentolabs/credentials` already exists in pass.
+
+**Re-authenticate when the token expires:**
+
+```bash
+make gws-login   # re-runs OAuth login on Mac + re-exports to pass
+make gws-server-setup   # re-deploys to server
+```
+
+**Verify it works:**
+
+```bash
+# On server (make ssh)
+gws drive files list --params '{"pageSize": 5}'
+gws gmail messages list --params '{"maxResults": 3}'
+```
+
+**How it works under the hood:**
+
+- Credentials live in `pass` at `shared/gws/mentolabs/credentials` and `shared/gws/mentolabs/client-secret`
+- `gws-setup.sh` injects `quota_project_id: giskard-bot` into `credentials.json` at deploy time and sets `GOOGLE_APPLICATION_CREDENTIALS` in `~/.profile`/`~/.bashrc` so `gws` sends `x-goog-user-project: giskard-bot` on every request (required because the server has no gcloud ADC)
+- OpenClaw GWS skills are sparse-cloned from `github.com/googleworkspace/cli` into `~/.openclaw/skills/`
+
 ### Adding a new cloud-init package or step
 
 Edit `terraform/user-data.yml`. Changes only apply to **new** servers (cloud-init runs once). For existing servers, SSH in and apply manually, or reprovision.
@@ -363,6 +419,29 @@ ssh -i terraform/id_ed25519 molt@<IP> "sudo tail -50 /var/log/cloud-init-output.
 ### Checkov flags a new resource
 
 Add required attributes (backups, labels, protection) or add a `checkov:skip` comment inside the resource block with justification.
+
+### GWS smoke test fails ("credentials may be expired or APIs not enabled")
+
+Token expiry is the most common cause. Re-authenticate on Mac:
+
+```bash
+make gws-login          # OAuth re-auth on Mac + re-export to pass
+make gws-server-setup   # re-deploy to server
+```
+
+If the token is fresh but the test still fails, check the quota project:
+
+```bash
+# On server: verify credentials.json has quota_project_id
+python3 -c "import json; d=json.load(open('/home/molt/.config/gws/credentials.json')); print(d.get('quota_project_id'))"
+# Should print: giskard-bot
+
+# Verify GOOGLE_APPLICATION_CREDENTIALS is set
+echo $GOOGLE_APPLICATION_CREDENTIALS
+# Should print: /home/molt/.config/gws/credentials.json
+```
+
+If `quota_project_id` is missing, re-run `make gws-server-setup` (the fix is in `gws-setup.sh`).
 
 ### GPG key expired
 
