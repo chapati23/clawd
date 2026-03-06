@@ -107,21 +107,46 @@ ok "Credentials written to ${GWS_CONFIG_DIR}"
 
 if [[ -d "${OPENCLAW_SKILLS_DIR}" ]]; then
   step "Installing OpenClaw GWS skills"
+
+  # Check if all skills are already installed
+  all_installed=true
   for skill in "${GWS_SKILLS[@]}"; do
-    skill_dir="${OPENCLAW_SKILLS_DIR}/gws-${skill}"
-    if [[ -d "${skill_dir}" ]]; then
-      ok "Skill already installed: gws-${skill}"
-    else
-      info "Installing gws-${skill}..."
-      if npx --yes skills add \
-        "https://github.com/googleworkspace/cli/tree/main/skills/gws-${skill}" \
-        --output "${OPENCLAW_SKILLS_DIR}" &>/dev/null; then
+    [[ -d "${OPENCLAW_SKILLS_DIR}/gws-${skill}" ]] || { all_installed=false; break; }
+  done
+
+  if ${all_installed}; then
+    ok "All GWS skills already installed"
+  elif ! command -v git &>/dev/null; then
+    warn "git not found — skipping skills install"
+  else
+    info "Cloning gws skills from GitHub..."
+    GWS_TMPDIR="$(mktemp -d)"
+    # shellcheck disable=SC2064
+    trap "rm -rf '${GWS_TMPDIR}'" EXIT
+
+    # Sparse clone — fetch only the skills/ subdirectories we need
+    git clone --depth=1 --filter=blob:none --sparse \
+      https://github.com/googleworkspace/cli "${GWS_TMPDIR}" &>/dev/null
+
+    sparse_paths=()
+    for skill in "${GWS_SKILLS[@]}"; do
+      sparse_paths+=("skills/gws-${skill}")
+    done
+    git -C "${GWS_TMPDIR}" sparse-checkout set "${sparse_paths[@]}" &>/dev/null
+
+    for skill in "${GWS_SKILLS[@]}"; do
+      skill_src="${GWS_TMPDIR}/skills/gws-${skill}"
+      skill_dst="${OPENCLAW_SKILLS_DIR}/gws-${skill}"
+      if [[ -d "${skill_dst}" ]]; then
+        ok "Skill already installed: gws-${skill}"
+      elif [[ -d "${skill_src}" ]]; then
+        cp -r "${skill_src}" "${skill_dst}"
         ok "Installed gws-${skill}"
       else
-        warn "Could not install gws-${skill} (check network)"
+        warn "Skill not found in repo: gws-${skill}"
       fi
-    fi
-  done
+    done
+  fi
 else
   info "OpenClaw skills directory not found — skipping skill install"
   info "(Run 'openclaw onboard' first if you want GWS skills)"

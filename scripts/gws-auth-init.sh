@@ -104,25 +104,25 @@ fi
 # Step 3: Check client_secret.json exists
 # --------------------------------------------------
 
+if [[ ! -f "${CLIENT_SECRET_FILE}" ]]; then
+  error "OAuth client secret not found at: ${CLIENT_SECRET_FILE}"
+  echo ""
+  echo "  Complete the one-time GCP Console setup (2 steps):"
+  echo ""
+  echo "  1. Configure consent screen (one-time, ~10 seconds):"
+  echo "     https://console.cloud.google.com/apis/credentials/consent?project=giskard-bot"
+  echo "     → User type: Internal → Save"
+  echo ""
+  echo "  2. Create OAuth client and download JSON:"
+  echo "     https://console.cloud.google.com/apis/credentials?project=giskard-bot"
+  echo "     → + Create Credentials → OAuth client ID → Desktop app → Download JSON"
+  echo "     → Save the file to: ${CLIENT_SECRET_FILE}"
+  echo ""
+  echo "  Then re-run: make gws-auth-init"
+  echo ""
+  exit 1
+fi
 if ! ${EXPORT_ONLY}; then
-  if [[ ! -f "${CLIENT_SECRET_FILE}" ]]; then
-    error "OAuth client secret not found at: ${CLIENT_SECRET_FILE}"
-    echo ""
-    echo "  Complete the one-time GCP Console setup (2 steps):"
-    echo ""
-    echo "  1. Configure consent screen (one-time, ~10 seconds):"
-    echo "     https://console.cloud.google.com/apis/credentials/consent?project=giskard-bot"
-    echo "     → User type: Internal → Save"
-    echo ""
-    echo "  2. Create OAuth client and download JSON:"
-    echo "     https://console.cloud.google.com/apis/credentials?project=giskard-bot"
-    echo "     → + Create Credentials → OAuth client ID → Desktop app → Download JSON"
-    echo "     → Save the file to: ${CLIENT_SECRET_FILE}"
-    echo ""
-    echo "  Then re-run: make gws-auth-init"
-    echo ""
-    exit 1
-  fi
   ok "client_secret.json found"
 fi
 
