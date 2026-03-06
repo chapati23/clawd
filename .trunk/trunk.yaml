@@ -16,6 +16,7 @@ lint:
         - name: lint
           run: checkov -f ${target} -o sarif --output-file-path ${tmpfile}, --soft-fail --external-checks-dir ${workspace}/checkov-policies
   enabled:
+    - shfmt@3.6.0
     - actionlint@1.6.9
     - codespell@2.4.1
     - shellcheck@0.8.0
