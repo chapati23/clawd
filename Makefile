@@ -4,7 +4,7 @@ IP        := $(shell terraform -chdir=$(TF_DIR) output -raw server_ip 2>/dev/nul
 # openclaw binary path on the server (molt user's npm-global prefix)
 OPENCLAW  := /home/molt/.npm-global/bin/openclaw
 
-.PHONY: setup destroy ssh logs stop restart update status add-bot rotate-key cred-status dashboard dashboard-setup dashboard-pair tailscale-ip tailscale-status mac-node-setup mac-node-approve mac-node-status mac-node-restart mac-node-update mac-node-token mac-gateway-status mac-gateway-restart gws-auth-init gws-setup gws-login
+.PHONY: setup destroy ssh logs stop restart update status add-bot rotate-key cred-status dashboard dashboard-setup dashboard-pair tailscale-ip tailscale-status mac-node-setup mac-node-approve mac-node-status mac-node-restart mac-node-update mac-node-token mac-gateway-status mac-gateway-restart gws-auth-init gws-setup gws-server-setup gws-login
 
 ## Setup & teardown ─────────────────────────────
 
@@ -115,6 +115,10 @@ gws-auth-init:        ## One-time Mac setup: install gws, OAuth login, export cr
 
 gws-setup:            ## Deploy GWS credentials from pass to this machine (idempotent)
 	@./scripts/gws-setup.sh
+
+gws-server-setup:     ## Deploy GWS credentials from pass to the server (idempotent)
+	@scp -i $(SSH_KEY) scripts/gws-setup.sh molt@$(IP):~/
+	@ssh -i $(SSH_KEY) molt@$(IP) "bash ~/gws-setup.sh && rm -f ~/gws-setup.sh"
 
 gws-login:            ## Re-authenticate gws after token expiry
 	@gws auth login -s drive,gmail,calendar,sheets,docs,people,chat,tasks,slides && \
