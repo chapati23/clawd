@@ -97,7 +97,22 @@ for f in client_secret.json credentials.json; do
   touch "${GWS_CONFIG_DIR}/${f}" && chmod 600 "${GWS_CONFIG_DIR}/${f}"
 done
 pass show "${PASS_CLIENT_SECRET}" > "${GWS_CONFIG_DIR}/client_secret.json"
-pass show "${PASS_CREDENTIALS}"   > "${GWS_CONFIG_DIR}/credentials.json"
+
+# Inject quota_project_id so gws sends x-goog-user-project: giskard-bot on every request.
+# gws reads quota_project_id from GOOGLE_APPLICATION_CREDENTIALS (or the gcloud ADC file).
+# On the server there is no ADC file, so we embed it in credentials.json and point the env var there.
+pass show "${PASS_CREDENTIALS}" \
+  | python3 -c "import sys,json; d=json.load(sys.stdin); d.setdefault('quota_project_id','giskard-bot'); print(json.dumps(d))" \
+  > "${GWS_CONFIG_DIR}/credentials.json"
+
+# Persist GOOGLE_APPLICATION_CREDENTIALS so all future shell sessions (and agents) pick it up
+CREDS_FILE="${GWS_CONFIG_DIR}/credentials.json"
+for rc in "${HOME}/.profile" "${HOME}/.bashrc"; do
+  if [[ -f "${rc}" ]] && ! grep -q "GOOGLE_APPLICATION_CREDENTIALS" "${rc}" 2>/dev/null; then
+    echo "export GOOGLE_APPLICATION_CREDENTIALS=${CREDS_FILE}" >> "${rc}"
+  fi
+done
+export GOOGLE_APPLICATION_CREDENTIALS="${CREDS_FILE}"
 
 ok "Credentials written to ${GWS_CONFIG_DIR}"
 
