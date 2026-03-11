@@ -86,3 +86,18 @@ variable "openclaw_version" {
   default     = "latest"
   description = "OpenClaw version to install. Pin to a specific version (e.g. '1.2.3') for reproducible builds."
 }
+
+# ──────────────────────────────────────────────
+# Cloudflare
+# ──────────────────────────────────────────────
+
+variable "cloudflare_api_token" {
+  type        = string
+  sensitive   = true
+  description = "Cloudflare API token for managing resources. Needs Account:API Tokens:Edit permission. Store at infrastructure/cloudflare/api-token."
+}
+
+variable "cloudflare_account_id" {
+  type        = string
+  description = "Cloudflare account ID. Found at dash.cloudflare.com → right sidebar."
+}
