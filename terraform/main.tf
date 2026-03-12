@@ -21,6 +21,10 @@ terraform {
       source  = "hashicorp/local"
       version = "~> 2.5"
     }
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 4.0"
+    }
   }
 
   required_version = ">= 1.5.0"
@@ -28,6 +32,10 @@ terraform {
 
 provider "hcloud" {
   token = var.hcloud_token
+}
+
+provider "cloudflare" {
+  api_token = var.cloudflare_api_token
 }
 
 # ──────────────────────────────────────────────
@@ -145,4 +153,29 @@ output "ssh_command" {
 output "ssh_public_key" {
   value       = tls_private_key.ssh.public_key_openssh
   description = "Generated SSH public key (ed25519)."
+}
+
+# ──────────────────────────────────────────────
+# Cloudflare — Browser Rendering API token
+# ──────────────────────────────────────────────
+
+data "cloudflare_api_token_permission_groups" "all" {}
+
+resource "cloudflare_api_token" "browser_rendering" {
+  name = "giskard-browser-rendering"
+
+  policy {
+    permission_groups = [
+      data.cloudflare_api_token_permission_groups.all.account["Browser Rendering Write"],
+    ]
+    resources = {
+      "com.cloudflare.api.account.${var.cloudflare_account_id}" = "*"
+    }
+  }
+}
+
+output "cloudflare_browser_rendering_token" {
+  value       = cloudflare_api_token.browser_rendering.value
+  sensitive   = true
+  description = "CF Browser Rendering API token. Store with: pass insert -f shared/cloudflare/browser-rendering-api-token"
 }
