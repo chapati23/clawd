@@ -94,10 +94,10 @@ variable "openclaw_version" {
 variable "cloudflare_api_token" {
   type        = string
   sensitive   = true
-  description = "Cloudflare API token for managing resources. Needs Account:API Tokens:Edit permission. Store at infrastructure/cloudflare/api-token."
+  description = "Cloudflare API token for managing resources. Needs User:API Tokens:Edit and Account:Browser Rendering:Write permissions. Store at infrastructure/cloudflare/api-token."
 }
 
 variable "cloudflare_account_id" {
   type        = string
-  description = "Cloudflare account ID. Found at dash.cloudflare.com → right sidebar."
+  description = "Cloudflare account ID. Found at dash.cloudflare.com → right sidebar. Store at infrastructure/cloudflare/account-id."
 }

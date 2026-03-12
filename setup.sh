@@ -154,6 +154,79 @@ fi
 export TF_VAR_hcloud_token="${HCLOUD_TOKEN}"
 ok "Hetzner token resolved"
 
+# --- Cloudflare credentials ---
+CLOUDFLARE_API_TOKEN="${CLOUDFLARE_API_TOKEN:-${TF_VAR_cloudflare_api_token-}}"
+CLOUDFLARE_ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID:-${TF_VAR_cloudflare_account_id-}}"
+
+# Try pass first
+if [[ -z ${CLOUDFLARE_API_TOKEN} ]] && ${USE_CREDENTIALS}; then
+	CLOUDFLARE_API_TOKEN=$(pass_get "infrastructure/cloudflare/api-token" || true)
+	if [[ -n ${CLOUDFLARE_API_TOKEN} ]]; then
+		info "Cloudflare API token loaded from pass"
+	fi
+fi
+
+if [[ -z ${CLOUDFLARE_ACCOUNT_ID} ]] && ${USE_CREDENTIALS}; then
+	CLOUDFLARE_ACCOUNT_ID=$(pass_get "infrastructure/cloudflare/account-id" || true)
+	if [[ -n ${CLOUDFLARE_ACCOUNT_ID} ]]; then
+		info "Cloudflare account ID loaded from pass"
+	fi
+fi
+
+# Try existing tfvars
+if [[ -z ${CLOUDFLARE_API_TOKEN} ]] && [[ -f ${TFVARS} ]]; then
+	CLOUDFLARE_API_TOKEN=$(tfvars_get "cloudflare_api_token" "${TFVARS}")
+	if [[ -n ${CLOUDFLARE_API_TOKEN} ]]; then
+		info "Cloudflare API token loaded from terraform.tfvars"
+	fi
+fi
+
+if [[ -z ${CLOUDFLARE_ACCOUNT_ID} ]] && [[ -f ${TFVARS} ]]; then
+	CLOUDFLARE_ACCOUNT_ID=$(tfvars_get "cloudflare_account_id" "${TFVARS}")
+	if [[ -n ${CLOUDFLARE_ACCOUNT_ID} ]]; then
+		info "Cloudflare account ID loaded from terraform.tfvars"
+	fi
+fi
+
+# Prompt as last resort
+if [[ -z ${CLOUDFLARE_API_TOKEN} ]]; then
+	info "No Cloudflare API token found in pass, env vars, or terraform.tfvars."
+	CLOUDFLARE_API_TOKEN=$(prompt_secret "Enter your Cloudflare API token")
+	if [[ -z ${CLOUDFLARE_API_TOKEN} ]]; then
+		error "No Cloudflare API token provided. Aborting."
+		exit 1
+	fi
+
+	if ${USE_CREDENTIALS}; then
+		if echo "${CLOUDFLARE_API_TOKEN}" | pass insert -f infrastructure/cloudflare/api-token 2>&1; then
+			ok "Cloudflare API token stored in pass"
+		else
+			warn "Could not store Cloudflare API token in pass (continuing with env var)"
+		fi
+	fi
+fi
+
+if [[ -z ${CLOUDFLARE_ACCOUNT_ID} ]]; then
+	info "No Cloudflare account ID found in pass, env vars, or terraform.tfvars."
+	CLOUDFLARE_ACCOUNT_ID=$(prompt "Enter your Cloudflare account ID")
+	if [[ -z ${CLOUDFLARE_ACCOUNT_ID} ]]; then
+		error "No Cloudflare account ID provided. Aborting."
+		exit 1
+	fi
+
+	if ${USE_CREDENTIALS}; then
+		if echo "${CLOUDFLARE_ACCOUNT_ID}" | pass insert -f infrastructure/cloudflare/account-id 2>&1; then
+			ok "Cloudflare account ID stored in pass"
+		else
+			warn "Could not store Cloudflare account ID in pass (continuing with env var)"
+		fi
+	fi
+fi
+
+export TF_VAR_cloudflare_api_token="${CLOUDFLARE_API_TOKEN}"
+export TF_VAR_cloudflare_account_id="${CLOUDFLARE_ACCOUNT_ID}"
+ok "Cloudflare credentials resolved"
+
 # --- Terraform Cloud token (CLI auth, not a TF variable) ---
 if ${USE_CREDENTIALS}; then
 	TFC_TOKEN=$(pass_get "infrastructure/terraform-cloud/api-token" || true)
@@ -195,6 +268,8 @@ if [[ -f ${TFVARS} ]]; then
 	# Safely update tokens from pass (targeted per-key replacement, backup first)
 	if ${USE_CREDENTIALS}; then
 		tfvars_update "hcloud_token" "${HCLOUD_TOKEN}" "${TFVARS}"
+		tfvars_update "cloudflare_api_token" "${CLOUDFLARE_API_TOKEN}" "${TFVARS}"
+		tfvars_update "cloudflare_account_id" "${CLOUDFLARE_ACCOUNT_ID}" "${TFVARS}"
 
 		# Update optional tokens if they exist in both pass and tfvars
 		for token_pair in "${TOKEN_MAP[@]}"; do
@@ -213,6 +288,10 @@ else
 	cat >"${TFVARS}" <<EOF
 # Hetzner API token — alternatively set via:  export TF_VAR_hcloud_token="..."
 hcloud_token = "${HCLOUD_TOKEN}"
+
+# Cloudflare credentials — alternatively set via TF_VAR_cloudflare_api_token / TF_VAR_cloudflare_account_id
+cloudflare_api_token = "${CLOUDFLARE_API_TOKEN}"
+cloudflare_account_id = "${CLOUDFLARE_ACCOUNT_ID}"
 
 server_name = "${BOT_NAME}"
 location    = "nbg1"

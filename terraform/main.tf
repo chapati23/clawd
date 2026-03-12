@@ -166,7 +166,7 @@ resource "cloudflare_api_token" "browser_rendering" {
 
   policy {
     permission_groups = [
-      data.cloudflare_api_token_permission_groups.all.account["Browser Rendering:Edit"],
+      data.cloudflare_api_token_permission_groups.all.account["Browser Rendering Write"],
     ]
     resources = {
       "com.cloudflare.api.account.${var.cloudflare_account_id}" = "*"
