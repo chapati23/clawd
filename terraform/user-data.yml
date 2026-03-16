@@ -46,10 +46,18 @@ swap:
 # Bootstrap
 # ──────────────────────────────────────────────
 runcmd:
-  # Harden SSH: disable root & password login
+  # Harden SSH: disable root & password login, enable keepalives
   - sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
   - sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
-  - systemctl restart sshd
+  - |
+    cat >> /etc/ssh/sshd_config << 'SSHD'
+    
+    # Keep SSH connections alive (prevent idle timeout)
+    ClientAliveInterval 60
+    ClientAliveCountMax 3
+    TCPKeepAlive yes
+    SSHD
+  - systemctl restart ssh
 
   # Enable fail2ban
   - systemctl enable --now fail2ban
