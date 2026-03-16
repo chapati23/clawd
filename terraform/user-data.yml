@@ -81,6 +81,12 @@ runcmd:
   - npm install -g openclaw@${OPENCLAW_VERSION}
 
   # ──────────────────────────────────────────────
+  # Starship (shell prompt)
+  # ──────────────────────────────────────────────
+  - curl -sS https://starship.rs/install.sh | sh -s -- --yes --bin-dir /usr/local/bin
+  - echo 'eval "$(starship init bash)"' >> /home/molt/.bashrc
+
+  # ──────────────────────────────────────────────
   # Syncthing (official apt repo — not Ubuntu's stale version)
   # ──────────────────────────────────────────────
   - curl -fsSL https://syncthing.net/release-key.gpg | gpg --dearmor -o /etc/apt/keyrings/syncthing.gpg
