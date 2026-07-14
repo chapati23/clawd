@@ -35,6 +35,7 @@ fi
 
 GCP_PROJECT="giskard-bot"
 GWS_CONFIG_DIR="${HOME}/.config/gws"
+GWS_NPM_PACKAGE="@googleworkspace/cli@0.22.5"
 CLIENT_SECRET_FILE="${GWS_CONFIG_DIR}/client_secret.json"
 SCOPES="drive,gmail,calendar,sheets,docs,people,chat,tasks,slides"
 
@@ -58,12 +59,13 @@ step "GWS auth init (mentolabs)"
 # --------------------------------------------------
 
 if ! ${EXPORT_ONLY}; then
-	if ! command -v gws &>/dev/null; then
-		step "Installing gws"
-		npm install -g @googleworkspace/cli
-		ok "gws installed"
+	CURRENT_GWS_VERSION="$(gws --version 2>/dev/null | awk '{print $2}' || true)"
+	if [[ ${CURRENT_GWS_VERSION} != "0.22.5" ]]; then
+		step "Installing ${GWS_NPM_PACKAGE}"
+		npm install -g "${GWS_NPM_PACKAGE}"
+		ok "gws installed ($(gws --version 2>/dev/null || echo unknown))"
 	else
-		ok "gws already installed"
+		ok "gws already at $(gws --version 2>/dev/null || echo unknown)"
 	fi
 fi
 

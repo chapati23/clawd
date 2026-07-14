@@ -42,6 +42,7 @@ fi
 [[ -d "${HOME}/.npm-global/bin" ]] && export PATH="${HOME}/.npm-global/bin:${PATH}"
 
 GWS_CONFIG_DIR="${HOME}/.config/gws"
+GWS_NPM_PACKAGE="@googleworkspace/cli@0.22.5"
 PASS_CREDENTIALS="shared/gws/mentolabs/credentials"
 PASS_CLIENT_SECRET="shared/gws/mentolabs/client-secret"
 OPENCLAW_SKILLS_DIR="${HOME}/.openclaw/skills"
@@ -73,6 +74,7 @@ fi
 # --------------------------------------------------
 
 if command -v gws &>/dev/null &&
+	[[ "$(gws --version 2>/dev/null | awk '{print $2}' || true)" == "0.22.5" ]] &&
 	[[ -f "${GWS_CONFIG_DIR}/credentials.json" ]] &&
 	gws drive files list --params '{"pageSize":1}' &>/dev/null 2>&1; then
 	ok "GWS already configured and working"
@@ -83,12 +85,13 @@ fi
 # Step 1: Install gws
 # --------------------------------------------------
 
-if ! command -v gws &>/dev/null; then
-	step "Installing gws"
-	npm install -g @googleworkspace/cli
-	ok "gws installed"
+CURRENT_GWS_VERSION="$(gws --version 2>/dev/null | awk '{print $2}' || true)"
+if [[ ${CURRENT_GWS_VERSION} != "0.22.5" ]]; then
+	step "Installing ${GWS_NPM_PACKAGE}"
+	npm install -g "${GWS_NPM_PACKAGE}"
+	ok "gws installed ($(gws --version 2>/dev/null || echo unknown))"
 else
-	ok "gws already installed"
+	ok "gws already at $(gws --version 2>/dev/null || echo unknown)"
 fi
 
 # --------------------------------------------------
@@ -118,8 +121,12 @@ for rc in "${HOME}/.profile" "${HOME}/.bashrc"; do
 	if [[ -f ${rc} ]] && ! grep -q "GOOGLE_APPLICATION_CREDENTIALS" "${rc}" 2>/dev/null; then
 		echo "export GOOGLE_APPLICATION_CREDENTIALS=${CREDS_FILE}" >>"${rc}"
 	fi
+	if [[ -f ${rc} ]] && ! grep -q "GOOGLE_WORKSPACE_CLI_KEYRING_BACKEND" "${rc}" 2>/dev/null; then
+		echo "export GOOGLE_WORKSPACE_CLI_KEYRING_BACKEND=file" >>"${rc}"
+	fi
 done
 export GOOGLE_APPLICATION_CREDENTIALS="${CREDS_FILE}"
+export GOOGLE_WORKSPACE_CLI_KEYRING_BACKEND=file
 
 ok "Credentials written to ${GWS_CONFIG_DIR}"
 
