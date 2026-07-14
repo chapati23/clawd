@@ -335,13 +335,13 @@ make gws-server-setup   # re-deploys to server
 ```bash
 # On server (make ssh)
 gws drive files list --params '{"pageSize": 5}'
-gws gmail messages list --params '{"maxResults": 3}'
+gws gmail users messages list --params '{"userId":"me","maxResults": 3}'
 ```
 
 **How it works under the hood:**
 
 - Credentials live in `pass` at `shared/gws/mentolabs/credentials` and `shared/gws/mentolabs/client-secret`
-- `gws-setup.sh` injects `quota_project_id: giskard-bot` into `credentials.json` at deploy time and sets `GOOGLE_APPLICATION_CREDENTIALS` in `~/.profile`/`~/.bashrc` so `gws` sends `x-goog-user-project: giskard-bot` on every request (required because the server has no gcloud ADC)
+- `gws-setup.sh` injects `quota_project_id: giskard-bot` into `credentials.json` at deploy time and sets `GOOGLE_APPLICATION_CREDENTIALS` plus `GOOGLE_WORKSPACE_CLI_KEYRING_BACKEND=file` in `~/.profile`/`~/.bashrc` so headless server shells use plaintext OAuth credentials with the right quota project
 - OpenClaw GWS skills are sparse-cloned from `github.com/googleworkspace/cli` into `~/.openclaw/skills/`
 
 ### Adding a new cloud-init package or step
